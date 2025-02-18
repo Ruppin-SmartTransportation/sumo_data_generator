@@ -27,8 +27,26 @@ your_project/
 ```
 
 ## Installation
-1. Install SUMO from [official website](https://www.eclipse.org/sumo/).
-2. Install Python dependencies:
+1. Install SUMO (if not installed):
+   - Download from: [SUMO Downloads](https://sumo.dlr.de/docs/Downloads.html)
+   - Add SUMO to your system's PATH (for `sumo-gui` to work).
+
+2. Create a virtual environment named `sumo`:
+   ```sh
+   python -m venv sumo
+   ```
+
+3. Activate the virtual environment:
+   - On **Windows**:
+     ```sh
+     sumo\Scripts\activate
+     ```
+   - On **macOS/Linux**:
+     ```sh
+     source sumo/bin/activate
+     ```
+
+4. Install Python dependencies:
    ```sh
    pip install -r requirements.txt
    ```
@@ -60,8 +78,20 @@ python scripts/extract_data.py
 python scripts/visualize_graph.py
 ```
 
+## requirements.txt
+```
+numpy
+pandas
+matplotlib
+networkx
+traci
+sumo-tools
+```
+
 ## Author
 Guy Tordjman
 
 ## License
 This project is licensed under the MIT License.
+
+ChatGPT is still generating a response...
