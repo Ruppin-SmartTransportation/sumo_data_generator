@@ -114,7 +114,7 @@ def evaluate_model(Y_test, Y_pred):
     
     return {"MSE": mse, "R2": r2}
 
-def plot_predictions(Y_test, Y_pred, sensor_idx=0, num_samples=100):
+def plot_predictions(Y_test, Y_pred, sensor_idx=100, num_samples=100):
     """
     Plots actual vs. predicted values for a selected sensor.
 
@@ -131,7 +131,7 @@ def plot_predictions(Y_test, Y_pred, sensor_idx=0, num_samples=100):
     plt.ylabel("Traffic Speed")
     plt.title(f"Linear Regression Predictions for Sensor {sensor_idx}")
     plt.legend()
-    plt.savefig('convertors/images/metr-la_lin_reg.pdf')
+    plt.savefig(f'convertors/images/metr-la_lin_reg_{sensor_idx}.pdf')
     plt.show()
 
 if __name__ == "__main__":
@@ -153,4 +153,4 @@ if __name__ == "__main__":
     print(f"🔹 R² Score: {metrics['R2']:.4f}")
 
     # Plot results for a specific sensor
-    plot_predictions(Y_test, Y_pred, sensor_idx=0)
+    plot_predictions(Y_test, Y_pred, sensor_idx=1)

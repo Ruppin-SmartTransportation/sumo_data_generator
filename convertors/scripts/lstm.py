@@ -99,14 +99,24 @@ def evaluate_model(model, X_test, Y_test, scaler):
     return Y_test_inv, Y_pred_inv
 
 # ---------------------- Plot Predictions ---------------------- #
-def plot_predictions(Y_test, Y_pred, num_series=1, offset=100):
-    plt.figure(figsize=(12, 6))
-    for i in range(num_series):
-        plt.plot(Y_test[:, i+offset], label=f'Actual {i+offset}', linestyle='dashed')
-        plt.plot(Y_pred[:, i+offset], label=f'Predicted {i+offset}')
+def plot_predictions(Y_test, Y_pred, sensor_idx=188, num_samples=100):
+    """
+    Plots actual vs. predicted values for a selected sensor.
+
+    Args:
+        Y_test (np.array): True labels.
+        Y_pred (np.array): Model predictions.
+        sensor_idx (int): Index of sensor to plot.
+        num_samples (int): Number of time steps to visualize.
+    """
+    plt.figure(figsize=(10, 5))
+    plt.plot(Y_test[:num_samples, sensor_idx], label="Actual", color="blue")
+    plt.plot(Y_pred[:num_samples, sensor_idx], label="Predicted", color="red", linestyle="dashed")
+    plt.xlabel("Time Steps")
+    plt.ylabel("Traffic Speed")
     plt.legend()
     plt.title("Traffic Speed Prediction - LSTM")
-    plt.savefig('convertors/images/metr-la_lstm.pdf')
+    plt.savefig(f'convertors/images/metr-la_lstm_{sensor_idx}.pdf')
     plt.show()
 
 # ---------------------- Run the Pipeline ---------------------- #
