@@ -1,0 +1,20 @@
+<routes>
+    <!-- Define vehicle types -->
+    <vType id="car" accel="2.6" decel="4.5" sigma="0.5" length="10.0" maxSpeed="20.0" color="red"/>
+
+    <!-- Define routes -->
+    <route id="route_1" edges="A0A1 A1A2 A2B2"/>
+    <route id="route_2" edges="B0B1 B1B2 B2C2"/>
+    <route id="route_3" edges="C0C1 C1C2"/>
+    <route id="route_4" edges="A0B0 B0C0"/>
+    <route id="route_5" edges="A1B1 B1C1"/>
+    <route id="route_6" edges="A2B2 B2C2"/>
+
+    <!-- Define vehicles-->
+    <flow id="flow_1" type="car" begin="0" end="3600" vehsPerHour="100" route="route_1"/>
+    <flow id="flow_2" type="car" begin="0" end="3600" vehsPerHour="80" route="route_2"/>
+    <flow id="flow_3" type="car" begin="0" end="3600" vehsPerHour="60" route="route_3"/>
+    <flow id="flow_4" type="car" begin="0" end="3600" vehsPerHour="70" route="route_4"/>
+    <flow id="flow_5" type="car" begin="0" end="3600" vehsPerHour="50" route="route_5"/>
+    <flow id="flow_6" type="car" begin="0" end="3600" vehsPerHour="90" route="route_6"/>
+</routes>
