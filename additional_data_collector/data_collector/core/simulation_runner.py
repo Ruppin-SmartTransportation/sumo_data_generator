@@ -6,6 +6,7 @@ from .node_logger import NodesLogger
 from .traffic_controller import TrafficController
 from .vehicle_controller import VehicleController
 from .junction_controller import JunctionController
+from .data_generator import DataGenerator
 
 class SimulationRunner:
     """ Main class to run the SUMO simulation with plugins and dynamic vehicle behavior. """
@@ -32,6 +33,9 @@ class SimulationRunner:
         self.junction_controller = JunctionController(self.logger)
         # Any appeal to traci should be done from VehicleController 
        
+        # Initialize DataGenerator
+        self.data_generator = DataGenerator(self.logger)
+        
         # Simulation parameters
         self.delay = delay
         self.num_of_steps = num_of_steps
@@ -115,7 +119,7 @@ class SimulationRunner:
         static_nodes = self.get_static_nodes()
         dynamic_nodes = self.get_dynamic_nodes()
 
-        # סינון צמתים פנימיים
+        # filter internal junctions
         self.filtered_static_nodes = [node for node in static_nodes if not node.startswith(":")]
 
         # Log the nodes to the nodes log file
@@ -129,12 +133,10 @@ class SimulationRunner:
                             class_name="SimulationRunner", function_name="log_nodes")
 
         
-
-        # הצגת מידע מפורט על כל צומת
+        # Log detailed information about each junction
         for junction_id in self.filtered_static_nodes:
             junction_info = self.junction_controller.get_junction_info(junction_id)
             
-            # לוג מסודר ומפורמט
             log_message = f"""🔹 Junction {junction_id} 
             📍 Position: {junction_info['Position']}
             🚗 Vehicles in Junction: {junction_info['Vehicles in Junction']}
@@ -150,7 +152,6 @@ class SimulationRunner:
         self.nodes_logger.log(f"Dynamic Nodes: {dynamic_nodes}", "INFO",
                             class_name="SimulationRunner", function_name="log_nodes")
 
-        # export_graph_flag = True if step_number % 5 == 0 else False
 
-        if step_number % 10 == 0:
-            self.junction_controller.export_network_graph(step_number, self.filtered_static_nodes)
+        if step_number % 20 == 0:
+            self.data_generator.export_data(step_number, self.filtered_static_nodes)
