@@ -1,0 +1,10 @@
+<configuration>
+    <input>
+        <net-file value="my_3x3_grid.net.xml"/>
+        <route-files value="my_3x3_routes.rou.xml"/>
+    </input>
+    <time>
+        <begin value="0"/>
+        <end value="3600"/>
+    </time>
+</configuration>
