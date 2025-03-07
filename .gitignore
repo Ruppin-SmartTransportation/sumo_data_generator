@@ -172,3 +172,6 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+additional_data_collector/data_collector/export data/*
+additional_data_collector/data_collector/main/*.log
