@@ -11,7 +11,20 @@ class DataGenerator:
         self.reset_files()
 
     def reset_files(self):
-        """ Resets the content of the CSV files. """
+        """ Resets the export data content and content of the CSV files. """
+
+        # Reset the export data directory
+        if os.path.exists("export_data"):
+            for file in os.listdir("export_data"):
+                file_path = os.path.join("export_data", file)
+                try:
+                    if os.path.isfile(file_path):
+                        os.unlink(file_path)
+                except Exception as e:
+                    print(e)
+        else:
+            os.makedirs("export_data")
+
         files_to_reset = [
             "export_data/junction_data.csv",
             "export_data/vehicle_data.csv"
@@ -79,6 +92,11 @@ class DataGenerator:
         plt.xlabel("X Coordinate")
         plt.ylabel("Y Coordinate")
         plt.grid(True)
+
+        export_data_directory = "export_data/network_graph"
+        # Create the directory only if it does not exist
+        if not os.path.exists(export_data_directory):
+            os.makedirs(export_data_directory)
         plt.savefig(f"export_data/network_graph/step_{step_number}.png")
         plt.close()
 
@@ -154,8 +172,11 @@ class DataGenerator:
         plt.figure(figsize=(12, 10))
         nx.draw(G, pos, with_labels=True, node_size=500, node_color='red', edge_color='gray', font_size=10, font_color='black')
         plt.title("SUMO Network Adjacency Matrix Graph")
+        
         graph_file_path = f"export_data/adjacency_matrix/step_{step_number}.png"
-        os.makedirs(os.path.dirname(graph_file_path), exist_ok=True)
+        directory = os.path.dirname(graph_file_path)
+        if not os.path.exists(directory):
+            os.makedirs(directory)
         plt.savefig(graph_file_path)
         plt.close()
 
