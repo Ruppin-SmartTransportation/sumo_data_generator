@@ -174,4 +174,5 @@ cython_debug/
 .pypirc
 
 additional_data_collector/data_collector/export_data/*
+additional_data_collector/data_collector/export_data_from_replay/*
 additional_data_collector/data_collector/main/*.log
