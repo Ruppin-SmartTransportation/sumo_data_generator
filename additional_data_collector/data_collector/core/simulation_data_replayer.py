@@ -138,7 +138,9 @@ class SimulationDataReplayer:
             x_coordinate = row['X Coordinate']
             y_coordinate = row['Y Coordinate']
             speed = row['Speed']
-            traci.vehicle.add(vehicle_id, routeID="", typeID=vehicle_type, depart=0)
+            if vehicle_id not in traci.vehicle.getIDList():
+                traci.vehicle.add(vehicle_id, routeID="", typeID=vehicle_type, depart=0)
+
             traci.vehicle.moveToXY(vehicle_id, "", 0, x_coordinate, y_coordinate, angle=0, keepRoute=2)
             traci.vehicle.setSpeed(vehicle_id, speed)
 
@@ -189,5 +191,5 @@ class SimulationDataReplayer:
         self.nodes_logger.log(f"Dynamic Nodes: {dynamic_nodes}", "INFO",
                             class_name="SimulationDataReplayer", function_name="log_nodes")
 
-        if step_number % 20 == 0:
-            self.data_generator.export_data(step_number, filtered_static_nodes)
+        # if step_number % 20 == 0:
+        self.data_generator.export_data(step_number, filtered_static_nodes)
