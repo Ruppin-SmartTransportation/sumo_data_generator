@@ -42,14 +42,17 @@ class DataGenerator:
         # pull all junctions and their outgoing edges
         junction_positions = {junction: traci.junction.getPosition(junction) for junction in filtered_static_nodes}
 
-        # Call the new function to export network graph
-        self.export_network_graph(step_number, junction_positions)
         # Call the new function to export data to CSV
         self.export_junction_data_to_csv(step_number, junction_positions)
-        # Call the new function to export adjacency matrix
-        self.export_junctions_adjacency_matrix(step_number, junction_positions)
-        # Call the new function to export vehicle data
-        self.export_vehicle_data(step_number)
+        # Call the new function to export vehicle data to CSV
+        self.export_vehicle_data_to_csv(step_number)
+
+        if step_number % 10 == 0:
+            # Call the new function to export network graph
+            self.export_network_graph(step_number, junction_positions)
+            # Call the new function to export adjacency matrix
+            self.export_junctions_adjacency_matrix(step_number, junction_positions)
+        
 
     def export_network_graph(self, step_number, junction_positions):
         """ Exports the network graph as an image using matplotlib. """
@@ -184,7 +187,7 @@ class DataGenerator:
         self.logger.log(f"✅ Adjacency matrix graph exported successfully to '{graph_file_path}'", "INFO", 
                         class_name="DataGenerator", function_name="export_adjacency_matrix")
 
-    def export_vehicle_data(self, step_number):
+    def export_vehicle_data_to_csv(self, step_number):
         """ Exports vehicle data to a CSV file. """
         csv_file_path = self.export_data_directory + "/vehicle_data.csv"
         file_exists = os.path.isfile(csv_file_path)
@@ -211,4 +214,4 @@ class DataGenerator:
                 })
 
         self.logger.log(f"✅ Vehicle data exported successfully to '{csv_file_path}'", "INFO", 
-                        class_name="DataGenerator", function_name="export_vehicle_data")
+                        class_name="DataGenerator", function_name="export_vehicle_data_to_csv")
