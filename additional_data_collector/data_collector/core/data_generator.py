@@ -6,28 +6,29 @@ import numpy as np
 import networkx as nx
 
 class DataGenerator:
-    def __init__(self, logger):
+    def __init__(self, logger, export_data_directory):
         self.logger = logger
+        self.export_data_directory = export_data_directory
         self.reset_files()
 
     def reset_files(self):
         """ Resets the export data content and content of the CSV files. """
 
         # Reset the export data directory
-        if os.path.exists("export_data"):
-            for file in os.listdir("export_data"):
-                file_path = os.path.join("export_data", file)
+        if os.path.exists(self.export_data_directory):
+            for file in os.listdir(self.export_data_directory):
+                file_path = os.path.join(self.export_data_directory, file)
                 try:
                     if os.path.isfile(file_path):
                         os.unlink(file_path)
                 except Exception as e:
                     print(e)
         else:
-            os.makedirs("export_data")
+            os.makedirs(self.export_data_directory)
 
         files_to_reset = [
-            "export_data/junction_data.csv",
-            "export_data/vehicle_data.csv"
+            self.export_data_directory + "/junction_data.csv",
+            self.export_data_directory + "/vehicle_data.csv"
         ]
         for file_path in files_to_reset:
             with open(file_path, mode='w', newline='') as file:
@@ -41,14 +42,17 @@ class DataGenerator:
         # pull all junctions and their outgoing edges
         junction_positions = {junction: traci.junction.getPosition(junction) for junction in filtered_static_nodes}
 
-        # Call the new function to export network graph
-        self.export_network_graph(step_number, junction_positions)
         # Call the new function to export data to CSV
         self.export_junction_data_to_csv(step_number, junction_positions)
-        # Call the new function to export adjacency matrix
-        self.export_junctions_adjacency_matrix(step_number, junction_positions)
-        # Call the new function to export vehicle data
-        self.export_vehicle_data(step_number)
+        # Call the new function to export vehicle data to CSV
+        self.export_vehicle_data_to_csv(step_number)
+
+        if step_number % 10 == 0:
+            # Call the new function to export network graph
+            self.export_network_graph(step_number, junction_positions)
+            # Call the new function to export adjacency matrix
+            self.export_junctions_adjacency_matrix(step_number, junction_positions)
+        
 
     def export_network_graph(self, step_number, junction_positions):
         """ Exports the network graph as an image using matplotlib. """
@@ -93,11 +97,11 @@ class DataGenerator:
         plt.ylabel("Y Coordinate")
         plt.grid(True)
 
-        export_data_directory = "export_data/network_graph"
+        export_network_dir = self.export_data_directory + "/network_graph"
         # Create the directory only if it does not exist
-        if not os.path.exists(export_data_directory):
-            os.makedirs(export_data_directory)
-        plt.savefig(f"export_data/network_graph/step_{step_number}.png")
+        if not os.path.exists(export_network_dir):
+            os.makedirs(export_network_dir)
+        plt.savefig(f"{self.export_data_directory}/network_graph/step_{step_number}.png")
         plt.close()
 
         self.logger.log("✅ Network graph exported successfully as 'network_graph.png'", "INFO", 
@@ -105,7 +109,7 @@ class DataGenerator:
 
     def export_junction_data_to_csv(self, step_number, junction_positions):
         """ Exports junction positions, types, and vehicle counts to a CSV file. """
-        csv_file_path = "export_data/junction_data.csv"
+        csv_file_path = self.export_data_directory + "/junction_data.csv"
         file_exists = os.path.isfile(csv_file_path)
 
         with open(csv_file_path, mode='a', newline='') as csv_file:  # Change mode to 'a'
@@ -147,7 +151,7 @@ class DataGenerator:
                     adjacency_matrix[j, i] = 1  # Since the graph is undirected
 
         # Save adjacency matrix to CSV
-        csv_file_path = f"export_data/adjacency_matrix/step_{step_number}.csv"
+        csv_file_path = f"{self.export_data_directory}/adjacency_matrix/step_{step_number}.csv"
         os.makedirs(os.path.dirname(csv_file_path), exist_ok=True)
         with open(csv_file_path, mode='w', newline='') as csv_file:
             writer = csv.writer(csv_file)
@@ -173,7 +177,7 @@ class DataGenerator:
         nx.draw(G, pos, with_labels=True, node_size=500, node_color='red', edge_color='gray', font_size=10, font_color='black')
         plt.title("SUMO Network Adjacency Matrix Graph")
         
-        graph_file_path = f"export_data/adjacency_matrix/step_{step_number}.png"
+        graph_file_path = f"{self.export_data_directory}/adjacency_matrix/step_{step_number}.png"
         directory = os.path.dirname(graph_file_path)
         if not os.path.exists(directory):
             os.makedirs(directory)
@@ -183,9 +187,9 @@ class DataGenerator:
         self.logger.log(f"✅ Adjacency matrix graph exported successfully to '{graph_file_path}'", "INFO", 
                         class_name="DataGenerator", function_name="export_adjacency_matrix")
 
-    def export_vehicle_data(self, step_number):
+    def export_vehicle_data_to_csv(self, step_number):
         """ Exports vehicle data to a CSV file. """
-        csv_file_path = "export_data/vehicle_data.csv"
+        csv_file_path = self.export_data_directory + "/vehicle_data.csv"
         file_exists = os.path.isfile(csv_file_path)
 
         with open(csv_file_path, mode='a', newline='') as csv_file:  # Change mode to 'a'
@@ -210,4 +214,4 @@ class DataGenerator:
                 })
 
         self.logger.log(f"✅ Vehicle data exported successfully to '{csv_file_path}'", "INFO", 
-                        class_name="DataGenerator", function_name="export_vehicle_data")
+                        class_name="DataGenerator", function_name="export_vehicle_data_to_csv")
