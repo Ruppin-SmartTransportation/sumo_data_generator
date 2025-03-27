@@ -4,12 +4,33 @@ import matplotlib.pyplot as plt
 import csv
 import numpy as np
 import networkx as nx
+import xml.etree.ElementTree as ET
 
 class DataGenerator:
     def __init__(self, logger):
         self.logger = logger
         self.reset_files()
+        self.load_junction_types_from_netxml(r"C:\Users\Matan\project_SmartTransportationRuppin\sumo_data_generator\additional_data_collector\data_collector\sumo_config\my_3x3_grid.net.xml")
+    
+    def load_junction_types_from_netxml(self, net_xml_path):
+        """
+        Parses the .net.xml file to retrieve junction types.
+        """
+        junction_types = {}
+        tree = ET.parse(net_xml_path)
+        root = tree.getroot()
 
+        for junction in root.findall("junction"):
+            junction_id = junction.get("id")
+            junction_type = junction.get("type")
+            if junction_id and junction_type:
+                junction_types[junction_id] = junction_type
+
+        self.logger.log(f"🔹 Junction types loaded from {net_xml_path}: {junction_types}", "DEBUG"
+                        , class_name="DataGenerator", function_name="load_junction_types_from_netxml")
+
+        self.junction_types = junction_types
+    
     def reset_files(self):
         """ Resets the export data content and content of the CSV files. """
 
@@ -33,7 +54,7 @@ class DataGenerator:
             with open(file_path, mode='w', newline='') as file:
                 writer = csv.writer(file)
                 if "junction_data.csv" in file_path:
-                    writer.writerow(['Step Number', 'Junction ID', 'X Coordinate', 'Y Coordinate', 'Junction Type', 'Vehicle Count'])
+                    writer.writerow(['Step Number', 'Junction ID', 'Junction Type', 'X Coordinate', 'Y Coordinate', 'Number of Vehicles', 'Average Speed', 'Congestion Level', 'Traffic Light State'])
                 elif "vehicle_data.csv" in file_path:
                     writer.writerow(['Step Number', 'Vehicle ID', 'Vehicle Type', 'X Coordinate', 'Y Coordinate', 'Speed'])
 
@@ -42,13 +63,14 @@ class DataGenerator:
         junction_positions = {junction: traci.junction.getPosition(junction) for junction in filtered_static_nodes}
 
         # Call the new function to export network graph
-        self.export_network_graph(step_number, junction_positions)
+        # self.export_network_graph(step_number, junction_positions)
+
         # Call the new function to export data to CSV
         self.export_junction_data_to_csv(step_number, junction_positions)
         # Call the new function to export adjacency matrix
         self.export_junctions_adjacency_matrix(step_number, junction_positions)
         # Call the new function to export vehicle data
-        self.export_vehicle_data(step_number)
+        self.export_vehicle_data_to_csv(step_number)
 
     def export_network_graph(self, step_number, junction_positions):
         """ Exports the network graph as an image using matplotlib. """
@@ -64,8 +86,8 @@ class DataGenerator:
 
             # get vehicles near the junction
             vehicles_nearby = traci.junction.getContextSubscriptionResults(junction)
-            vehicle_count = len(vehicles_nearby) if vehicles_nearby else 0
-            plt.text(position[0], position[1] + 20, f"{junction}\nVehicles: {vehicle_count}", fontsize=12, ha='center', zorder=10, 
+            number_of_vehicles = len(vehicles_nearby) if vehicles_nearby else 0
+            plt.text(position[0], position[1] + 20, f"{junction}\nVehicles: {number_of_vehicles}", fontsize=12, ha='center', zorder=10, 
                      bbox=dict(facecolor='white', alpha=0.6, edgecolor='none'))
 
             # get real edges connected to the junction
@@ -109,27 +131,92 @@ class DataGenerator:
         file_exists = os.path.isfile(csv_file_path)
 
         with open(csv_file_path, mode='a', newline='') as csv_file:  # Change mode to 'a'
-            fieldnames = ['Step Number', 'Junction ID', 'X Coordinate', 'Y Coordinate', 'Junction Type', 'Vehicle Count']
+            fieldnames = ['Step Number', 'Junction ID', 'Junction Type', 'X Coordinate', 'Y Coordinate', 'Number of Vehicles', 'Average Speed', 'Congestion Level', 'Traffic Light State']
             writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
 
             if not file_exists:
                 writer.writeheader()
 
             for junction, position in junction_positions.items():
+                
+                junction_type = self.junction_types.get(junction, "Unknown")
                 vehicles_nearby = traci.junction.getContextSubscriptionResults(junction)
-                vehicle_count = len(vehicles_nearby) if vehicles_nearby else 0
-                junction_type = traci.junction.getParameter(junction, "type")  # Use getParameter to get the junction type
+                number_of_vehicles = len(vehicles_nearby) if vehicles_nearby else 0
+                average_speed_in_junction = self.calculate_average_speed_at_junction(junction)
+                congestion_level = self.calculate_congestion_level_at_junction(junction, average_speed_in_junction)
+                traffic_light_state = traci.trafficlight.getRedYellowGreenState(junction) if junction_type == "traffic_light" else "N/A"
                 writer.writerow({
                     'Step Number': step_number,
                     'Junction ID': junction,
+                    'Junction Type': junction_type,
                     'X Coordinate': position[0],
                     'Y Coordinate': position[1],
-                    'Junction Type': junction_type,
-                    'Vehicle Count': vehicle_count
+                    'Number of Vehicles': number_of_vehicles,
+                    'Average Speed': average_speed_in_junction,
+                    'Congestion Level': congestion_level,
+                    'Traffic Light State': traffic_light_state
                 })
 
         self.logger.log(f"✅ Junction data exported successfully to '{csv_file_path}'", "INFO", 
                         class_name="DataGenerator", function_name="export_to_csv")
+
+    def calculate_congestion_level_at_junction(self, junction_id, average_speed_in_junction):
+        """ Calculates the congestion level at a junction based on the number of vehicles. """
+        speed_limit = self.get_max_speed_at_junction(junction_id)
+        if speed_limit == 0:
+            return "Error"
+        
+        # Compute the speed ratio (percentage of speed limit)
+        speed_ratio = (average_speed_in_junction / speed_limit) * 100
+
+        # Determine congestion level based on predefined thresholds
+        if speed_ratio >= 70:
+            return "Low Congestion"  # Free flow of traffic
+        elif 30 <= speed_ratio < 70:
+            return "Medium Congestion"  # Noticeable slowdown
+        else:
+            return "High Congestion"  # Heavy traffic / Traffic jam
+    
+    def get_max_speed_at_junction(self, junction_id):
+        """ 
+        Retrieves the maximum speed of edges connected to a junction.
+        Uses available methods to determine the speed limit.
+        """
+
+        # Getting all edges connected to the junction
+        incoming_edges = traci.junction.getIncomingEdges(junction_id)
+        outgoing_edges = traci.junction.getOutgoingEdges(junction_id)
+        all_edges = set(incoming_edges + outgoing_edges)
+        
+        # Collecting the maximum speeds available from these edges
+        max_speeds = []
+        for edge in all_edges:
+            try:
+                # Try retrieving a relevant speed attribute (e.g., current max speed)
+                # If getMaxSpeed is unavailable, use another related method or adjust accordingly
+                speed = traci.edge.getMaxSpeed(edge)  # Ensure this is valid in your setup
+                max_speeds.append(speed)
+            except AttributeError:
+                # Handle the case if getMaxSpeed is unavailable
+                # todo: Add alternative method to retrieve speed
+                self.logger.log(f"⚠️ AttributeError: getMaxSpeed not available for edge {edge}", "WARNING", 
+                                class_name="DataGenerator", function_name="get_max_speed_at_junction")
+                pass
+
+        # Return the highest speed found (if any) or 0.0 if not found
+        return max(max_speeds) if max_speeds else 0.0
+
+
+    def calculate_average_speed_at_junction(self, junction_id):
+        vehicles_nearby = traci.junction.getContextSubscriptionResults(junction_id)
+
+        if not vehicles_nearby:
+            return 0.0
+
+        speeds = [traci.vehicle.getSpeed(vehicle_id) for vehicle_id in vehicles_nearby.keys()]
+        
+        average_speed = sum(speeds) / len(speeds)
+        return average_speed
 
     def export_junctions_adjacency_matrix(self, step_number, junction_positions):
         """ Exports the adjacency matrix of the network and draws the graph. """
@@ -183,7 +270,7 @@ class DataGenerator:
         self.logger.log(f"✅ Adjacency matrix graph exported successfully to '{graph_file_path}'", "INFO", 
                         class_name="DataGenerator", function_name="export_adjacency_matrix")
 
-    def export_vehicle_data(self, step_number):
+    def export_vehicle_data_to_csv(self, step_number):
         """ Exports vehicle data to a CSV file. """
         csv_file_path = "export_data/vehicle_data.csv"
         file_exists = os.path.isfile(csv_file_path)
@@ -210,4 +297,4 @@ class DataGenerator:
                 })
 
         self.logger.log(f"✅ Vehicle data exported successfully to '{csv_file_path}'", "INFO", 
-                        class_name="DataGenerator", function_name="export_vehicle_data")
+                        class_name="DataGenerator", function_name="export_vehicle_data_to_csv")
