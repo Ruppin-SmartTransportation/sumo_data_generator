@@ -61,7 +61,7 @@ class DataGenerator:
                 elif "vehicle_data.csv" in file_path:
                     writer.writerow(['Step Number', 'Vehicle ID', 'Vehicle Type', 'X Coordinate', 'Y Coordinate', 'Length Dimention', 'Width Dimention' ,'Speed', 'Acceleration' , 'Route ID', 'Route Edges', 'Lane ID', 'Lane Position', 'Lane Index', 'Changing Lane', 'Left Signal', 'Right Signal', 'Leader ID', 'Leader Distance', 'Driving Status', 'Is Near Exit'])
                 elif "fixed_road_edges_data.csv" in file_path:
-                    writer.writerow(['Source', 'Destination', 'Length', 'Speed Limit', 'Current Traffic Flow', 'Road Type'])
+                    writer.writerow(['Edge ID <> Lane ID', 'Source', 'Destination', 'Length', 'Speed Limit', 'Current Traffic Flow', 'Road Type'])
 
 
     def export_data(self, step_number, filtered_static_nodes):
@@ -89,13 +89,11 @@ class DataGenerator:
         csv_file_path = "export_data/fixed_road_edges_data.csv"
         file_exists = os.path.isfile(csv_file_path)
 
-        # 1️⃣ Load XML file
         tree = ET.parse(self.grid_net_xml_path)
         root = tree.getroot()
 
-        # 2️⃣ Prepare CSV file
         file_exists = os.path.isfile(csv_file_path)
-        fieldnames = ['Edge ID', 'Source', 'Destination', 'Length', 'Speed Limit', 'Road Type']
+        fieldnames = ['Edge ID <> Lane ID', 'Source', 'Destination', 'Length', 'Speed Limit', 'Current Traffic Flow', 'Road Type']
 
         with open(csv_file_path, mode='a', newline='') as csv_file:  # Append mode ('a')
             writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
@@ -103,33 +101,48 @@ class DataGenerator:
             if not file_exists:
                 writer.writeheader()
 
-            # 3️⃣ Iterate through edges
-            for edge in root.findall('edge'):
+            edges_from_xml = root.findall('edge')
+            
+            self.logger.log(f"Total edges found in XML: {len(edges_from_xml)}", "INFO",
+                            class_name="DataGenerator", function_name="export_fixed_road_edges_data_to_csv")
+            
+            # Filter out road edges based, and filter out internal edges
+            road_edges = [edge for edge in edges_from_xml if edge.get('function') != 'internal']
+            self.logger.log(f"Total ***road edges*** found in XML: {len(road_edges)}", "INFO",
+                            class_name="DataGenerator", function_name="export_fixed_road_edges_data_to_csv")
+
+            for edge in road_edges:
                 edge_id = edge.get('id')
-                road_type = edge.get('function', 'normal')  # אם לא מוגדר, נניח שזה כביש רגיל
+                source = edge.get('from')
+                destination = edge.get('to')
+                road_type = edge.get('') 
+                
                 lanes = edge.findall('lane')
 
-                for lane in lanes:
-                    length = float(lane.get('length', 0))  # אורך הכביש
-                    speed_limit = float(lane.get('speed', 0))  # מהירות מקסימלית
-                    shape = lane.get('shape', '')  # צורת הנתיב (נקודות)
+                for lane in lanes: 
+                    # each edge can have multiple lanes - "Had Nativi / Du Nativi ...."
+                    # todo - disccuss what to do with this multi -lanes
+                    lane_id = lane.get('id')
+                    length = float(lane.get('length', 0))  
+                    speed_limit = float(lane.get('speed', 0)) 
+                    road_type = "highway" if speed_limit * 3.6 >= 80 else "local road" if speed_limit * 3.6 >= 50 else "residential/street"
+                    
+                    # Current traffic flow is not available in the XML, so we set it to 0.0
+                    current_traffic_flow = 0.0
 
-                    # 🔹 קביעת מקור ויעד - זהו משהו שצריך לשפר!
-                    source = edge_id.split('_')[0] if '_' in edge_id else 'Unknown'
-                    destination = edge_id.split('_')[1] if '_' in edge_id else 'Unknown'
-
-                    # 4️⃣ Write data to CSV
+                    # Write data to CSV
                     writer.writerow({
-                        'Edge ID': edge_id,
+                        'Edge ID <> Lane ID': f"{edge_id} <> {lane_id}",
                         'Source': source,
                         'Destination': destination,
                         'Length': length,
                         'Speed Limit': speed_limit,
-                        'Road Type': road_type
+                        'Road Type': road_type,
+                        'Current Traffic Flow': current_traffic_flow
                     })
 
-            
-        
+        self.logger.log(f"✅ Fixed road edges data exported successfully to '{csv_file_path}'", "INFO",
+                        class_name="DataGenerator", function_name="export_fixed_road_edges_data_to_csv")
 
     def export_junction_data_to_csv(self, step_number, junction_positions):
         """ Exports junction positions, types, and vehicle counts to a CSV file. """
@@ -200,7 +213,8 @@ class DataGenerator:
             try:
                 # Try retrieving a relevant speed attribute (e.g., current max speed)
                 # If getMaxSpeed is unavailable, use another related method or adjust accordingly
-                speed = traci.edge.getMaxSpeed(edge)  # Ensure this is valid in your setup
+                # speed = float(traci.edge.get(('speed', 0)))  # Ensure this is valid in your setup
+                speed = traci.edge.getMaxSpeed(edge)
                 max_speeds.append(speed)
             except AttributeError:
                 # Handle the case if getMaxSpeed is unavailable
