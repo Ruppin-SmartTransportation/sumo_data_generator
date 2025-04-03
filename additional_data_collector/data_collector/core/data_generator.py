@@ -12,7 +12,61 @@ class DataGenerator:
         self.reset_files()
         self.grid_net_xml_path = r"C:\Users\Matan\project_SmartTransportationRuppin\sumo_data_generator\additional_data_collector\data_collector\sumo_config\my_3x3_grid.net.xml"
         self.load_junction_types_from_netxml(self.grid_net_xml_path)
+        self.routes_rou_xml_path = r"C:\Users\Matan\project_SmartTransportationRuppin\sumo_data_generator\additional_data_collector\data_collector\sumo_config\my_3x3_routes.rou.xml"
+        self.load_routes_and_flows_from_rouxml(self.routes_rou_xml_path)
         self.export_fixed_road_edges = True
+    
+    def load_routes_and_flows_from_rouxml(self, routes_rou_xml_path):
+        """
+        Parses the .rou.xml file to retrieve routes and their edges, 
+        as well as the destination junction for each route.
+        """
+        routes = {}  # Dictionary to store routes and their details
+
+        # Parse the XML file
+        tree = ET.parse(routes_rou_xml_path)
+        root = tree.getroot()
+
+        # Iterate over the routes defined in the XML
+        for route in root.findall('route'):
+            route_id = route.get('id')  # Get the route ID
+            edges = route.get('edges')  # Get the edges in the route (space-separated)
+            edges_list = edges.split()  # Split the edges into a list
+            
+            # The destination junction is the second part of the last edge
+            last_edge = edges_list[-1]  # Get the last edge in the route
+            destination_junction = last_edge[2:]  # Extract the second part of the edge (the destination junction)
+            
+            # Store the route details in the dictionary
+            routes[route_id] = {
+                'edges': edges_list,
+                'destination_junction': destination_junction
+            }
+
+        self.routes_configuration = routes
+        # print(f"Routes loaded from {routes_rou_xml_path}: {routes}")
+        
+        flows = {}
+
+        for flow in root.findall('flow'):
+            flow_id = flow.get('id')
+            route_id = flow.get('route')
+            if route_id in routes:
+                flow_destination_junction = routes[route_id]['destination_junction']
+            else:
+                flow_destination_junction = None  # Fallback if no matching route is found
+            
+            flows[flow_id] = {
+                'flow_id': flow_id,
+                'route_id': route_id,
+                'destination_junction': flow_destination_junction
+            }
+
+        self.flows_configuration = flows
+        # print(f"Flows loaded from {routes_rou_xml_path}: {flows}")
+
+        self.logger.log(f"🔹 Routes and flows loaded from {routes_rou_xml_path}: {routes}", "DEBUG"
+                        , class_name="DataGenerator", function_name="load_routes_and_flows_from_rouxml")
     
     def load_junction_types_from_netxml(self, net_xml_path):
         """
@@ -52,6 +106,7 @@ class DataGenerator:
             "export_data/junction_data.csv",
             "export_data/vehicle_data.csv",
             "export_data/fixed_road_edges_data.csv",
+            "export_data/dynamic_vehicle_movement_edges_data.csv",
         ]
         for file_path in files_to_reset:
             with open(file_path, mode='w', newline='') as file:
@@ -62,7 +117,8 @@ class DataGenerator:
                     writer.writerow(['Step Number', 'Vehicle ID', 'Vehicle Type', 'X Coordinate', 'Y Coordinate', 'Length Dimention', 'Width Dimention' ,'Speed', 'Acceleration' , 'Route ID', 'Route Edges', 'Lane ID', 'Lane Position', 'Lane Index', 'Changing Lane', 'Left Signal', 'Right Signal', 'Leader ID', 'Leader Distance', 'Driving Status', 'Is Near Exit'])
                 elif "fixed_road_edges_data.csv" in file_path:
                     writer.writerow(['Edge ID <> Lane ID', 'Source', 'Destination', 'Length', 'Speed Limit', 'Current Traffic Flow', 'Road Type'])
-
+                elif "dynamic_vehicle_movement_edges_data.csv" in file_path:
+                    writer.writerow(['Step Number', 'Vehicle ID', 'Current Edge', 'Current Lane', 'Speed', 'Nearest Junction (Current)', 'Distance to Nearest Junction', 'Next (Nearest) Vehicle', 'Distance to Next Vehicle', 'Destination Junction'])
 
     def export_data(self, step_number, filtered_static_nodes):
         # pull all junctions and their outgoing edges
@@ -75,11 +131,115 @@ class DataGenerator:
 
         self.export_fixed_road_edges_data_to_csv()
 
+        self.export_dynamic_vehicle_movement_edges_data_to_csv(step_number, filtered_static_nodes)
+
         # Call the new function to export network graph
         # self.export_network_graph(step_number, junction_positions)
         # Call the new function to export adjacency matrix
         # self.export_junctions_adjacency_matrix(step_number, junction_positions)
 
+    def export_dynamic_vehicle_movement_edges_data_to_csv(self, step_number, filtered_static_nodes):
+        """ Exports dynamic vehicle movement edges data to a CSV file. """
+        csv_file_path = "export_data/dynamic_vehicle_movement_edges_data.csv"
+        file_exists = os.path.isfile(csv_file_path)
+
+        with open(csv_file_path, mode='a', newline='') as csv_file:
+            fieldnames = ['Step Number', 'Vehicle ID', 'Current Edge', 'Current Lane', 'Speed', 'Nearest Junction (Current)', 'Distance to Nearest Junction', 'Next (Nearest) Vehicle', 'Distance to Next Vehicle', 'Destination Junction']
+            writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+
+            if not file_exists:
+                writer.writeheader()
+
+            try:
+                all_junctions_vehicles_nearby = []
+                for junction in filtered_static_nodes:
+                    position = traci.junction.getPosition(junction)
+                    vehicles_nearby = traci.junction.getContextSubscriptionResults(junction)
+                    number_of_vehicles = len(vehicles_nearby) if vehicles_nearby else 0
+                    all_junctions_vehicles_nearby.append({'Junction ID': junction, "Position": position, 'Number of Vehicles': number_of_vehicles})
+
+                for vehicle_id in traci.vehicle.getIDList():
+                    vehicle_position = traci.vehicle.getPosition(vehicle_id)
+                    vehicle_edge = traci.vehicle.getRoadID(vehicle_id)
+                    vehicle_lane = traci.vehicle.getLaneID(vehicle_id)
+                    vehicle_speed = traci.vehicle.getSpeed(vehicle_id)
+
+                    nearest_junction, distance_to_nearest_junction = self.find_nearest_junction(vehicle_position, all_junctions_vehicles_nearby)
+                    next_vehicle, distance_to_next_vehicle = self.find_next_vehicle(vehicle_id, vehicle_edge, vehicle_position)
+                    # print(f"step_number: {step_number}, Vehicle ID: {vehicle_id}")
+                    # print(f"Next vehicle: {next_vehicle}, Distance: {distance_to_next_vehicle}")
+
+                    destination_junction = self.find_destination_junction(vehicle_id)
+
+                    # Write data to CSV
+                    writer.writerow({
+                        'Step Number': step_number,
+                        'Vehicle ID': vehicle_id,
+                        'Current Edge': vehicle_edge,
+                        'Current Lane': vehicle_lane,
+                        'Speed': vehicle_speed,
+                        'Nearest Junction (Current)': nearest_junction if nearest_junction is not None else 'None',  # Fallback if None
+                        'Distance to Nearest Junction': distance_to_nearest_junction if distance_to_nearest_junction is not None else 'None',  # Fallback if None
+                        'Next (Nearest) Vehicle': next_vehicle if distance_to_next_vehicle <= 100 else 'None',
+                        'Distance to Next Vehicle': distance_to_next_vehicle if distance_to_next_vehicle <= 100 else 'None',
+                        'Destination Junction': destination_junction
+                    })
+
+            except Exception as e:
+                print(f"Error occurred while exporting dynamic vehicle movement edges data: {e}")
+
+    def find_destination_junction(self, vehicle_id):
+        """ Finds the destination junction for a given vehicle ID. """
+        route_id = traci.vehicle.getRouteID(vehicle_id)
+        if route_id in self.routes_configuration:
+            destination_junction = self.routes_configuration[route_id]['destination_junction']
+            return destination_junction
+        else:
+            return None
+
+    def find_nearest_junction(self, vehicle_position, all_junctions_vehicles_nearby):
+        """ Finds the nearest junction to the vehicle. """
+        nearest_junction = None
+        min_distance = 1000000  # Initialize with a large number for minimum comparison.
+
+        for junction in all_junctions_vehicles_nearby:
+            junction_position = junction["Position"]
+            distance = np.linalg.norm(np.array(vehicle_position) - np.array(junction_position))
+
+            if distance < min_distance:
+                min_distance = distance
+                nearest_junction = junction["Junction ID"]
+                
+        return nearest_junction, min_distance
+    
+    def find_next_vehicle(self, vehicle_id, vehicle_edge, vehicle_position):
+        """ 
+        Finds the next vehicle on the same road (edge), calculates its distance from the current vehicle, 
+        and returns the next vehicle's ID and the distance to it.
+        """
+        next_vehicle = None
+        min_distance = float('inf')  # Initialize with a large number for minimum comparison.
+
+        # Get a list of all vehicles on the same road (edge).
+        vehicles_on_edge = list(traci.edge.getLastStepVehicleIDs(vehicle_edge))  # Convert tuple to list
+        if vehicle_id in vehicles_on_edge:
+            vehicles_on_edge.remove(vehicle_id)  # Remove the current vehicle from the list.
+
+        # Loop through all vehicles on the same road and calculate the distance.
+        for v in vehicles_on_edge:
+            vehicle_position_v = traci.vehicle.getPosition(v)
+
+            # Calculate the distance between the current vehicle and the other vehicles.
+            distance = np.linalg.norm(np.array(vehicle_position) - np.array(vehicle_position_v))
+
+            # If the current vehicle is closer than the previous ones, update the next vehicle.
+            if distance < min_distance:
+                min_distance = distance
+                next_vehicle = v
+
+        return next_vehicle, min_distance
+    
+    
     def export_fixed_road_edges_data_to_csv(self):
         """ Exports fixed road edges data to a CSV file. """
         if not self.export_fixed_road_edges:
