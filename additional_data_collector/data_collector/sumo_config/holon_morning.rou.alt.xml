@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- generated on 2025-04-05 20:46:47 by Eclipse SUMO duarouter Version 1.22.0
+<duarouterConfiguration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/duarouterConfiguration.xsd">
+
+    <input>
+        <net-file value="additional_data_collector/data_collector/sumo_config/holon.net.xml"/>
+        <route-files value="additional_data_collector/data_collector/sumo_config/holon_morning.trips.xml"/>
+    </input>
+
+    <output>
+        <output-file value="additional_data_collector/data_collector/sumo_config/holon_morning.rou.xml"/>
+    </output>
+
+    <processing>
+        <route-steps value="true"/>
+    </processing>
+
+</duarouterConfiguration>
+-->
+
+<routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/routes_file.xsd"/>

@@ -1,3 +1,7 @@
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 from core.simulation_data_replayer import SimulationDataReplayer
 
 if __name__ == "__main__":

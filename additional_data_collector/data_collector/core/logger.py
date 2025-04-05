@@ -1,4 +1,5 @@
 import datetime
+from pathlib import Path
 from termcolor import colored
 
 class Logger:
@@ -6,7 +7,10 @@ class Logger:
 
     def __init__(self, log_file_path="main/simulation_log.log"):
         """ Initialize the logger with a log file path. """
-        self.log_file = open(log_file_path, "w", encoding="utf-8")
+        log_path = Path(log_file_path)
+        log_path.parent.mkdir(parents=True, exist_ok=True)  # Make sure the directory exists
+
+        self.log_file = open(log_path, "w", encoding="utf-8")
         self.log("Simulation log file initialized.", "INFO", "cyan", 
                  class_name="Logger", function_name="__init__", print_to_console=True)
         

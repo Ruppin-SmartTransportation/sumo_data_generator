@@ -1,0 +1,10 @@
+<configuration>
+    <input>
+        <net-file value="holon.net.xml"/>
+        <route-files value="holon_evening.trips.xml"/>
+    </input>
+    <time>
+        <begin value="2400"/> 
+        <end value="2500"/>  
+    </time>
+</configuration>

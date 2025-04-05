@@ -1,0 +1,10 @@
+<configuration>
+    <input>
+        <net-file value="holon.net.xml"/>
+        <route-files value="holon_morning.trips.xml"/>
+    </input>
+    <time>
+        <begin value="0"/> <!-- 08:00 -->
+        <end value="100"/>   <!-- 100 steps later -->
+    </time>
+</configuration>
