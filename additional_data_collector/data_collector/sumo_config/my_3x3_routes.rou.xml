@@ -1,6 +1,6 @@
 <routes>
     <!-- Define vehicle types -->
-    <vType id="car" accel="2.6" decel="4.5" sigma="0.5" length="10.0" maxSpeed="20.0" color="red"/>
+    <vType id="car" accel="2.6" decel="4.5" sigma="0.5" length="10.0" maxSpeed="20.0" color="red" lcStrategic="0"/>
 
     <!-- Define routes -->
     <route id="route_1" edges="A0A1 A1A2 A2B2"/>

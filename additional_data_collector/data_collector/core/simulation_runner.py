@@ -65,12 +65,9 @@ class SimulationRunner:
                     self.most_veh = num_vehicles
                     self.most_veh_step = step
 
-                # Adjust the speed of one random vehicle every 10 steps
-                if step % 10 == 0:
+                # Adjust the speed of one random vehicle every 5 steps
+                if step % 5 == 0:
                     self.adjust_vehicle_speeds_randomly()
-
-                # # Update traffic lights
-                # self.traffic_controller.update_traffic_light(step, self.traffic_phase_duration)
 
                 # Log all vehicle information
                 self.vehicle_controller.log_vehicle_info()
