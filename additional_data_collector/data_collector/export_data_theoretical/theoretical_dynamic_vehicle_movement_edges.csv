@@ -1,12 +1,12 @@
-﻿Vehicle_ID,Current_Edge,Lane,Speed,Distance_to_Junction,Current_Junction,Next_Vehicle,Distance_to_Next_Vehicle,Destination_Junction,Use_Case_Description
-V_001,A1A2,0,12.5,5.0,A1,V_002,2,C3,רכב שמתקרב לצומת
-V_002,A1A2,0,14.3,12.8,A1,None,None,B2,"רכב יחסית קרוב לצומת, אך עדיין לא קריטי"
-V_003,B1B0,1,10.0,45.6,B1,V_004,3,A0,רכב שנמצא באמצע כביש ארוך – לא נחשב כמתקרב
-V_004,B1B0,1,9.2,15.4,B1,None,None,C1,רכב בנתיב פנימי עם מרחק גדול לצומת
-V_005,C2C1,2,0.0,0.0,C1,None,None,A2,רכב שעצר בצומת (רמזור/תמרור עצור)
-V_006,A0B0,0,22.0,1.5,B0,None,None,C0,רכב שעומד ממש לפני צומת – תרחיש קריטי
-V_007,B2B1,1,18.3,3.0,B1,V_008,1,C2,רכב שמאט לפני הצומת בגלל עומס תנועה
-V_008,B2B1,1,0.0,2.5,B1,None,None,C2,רכב שנתקע בגלל פקק לפני הצומת
-V_009,C1C2,2,30.0,100.0,None,None,None,A1,רכב רחוק מאוד מצומת – מחוץ להקשר הדינמי של הצומת
-V_010,A2A1,0,25.0,0.2,A1,V_011,3.5,B0,רכב שעומד ממש לפני רמזור ירוק – תנועה זורמת
-V_011,A2A1,0,0.0,0.2,A1,None,None,B0,רכב שעצר על קו הצומת – מחכה להוראה לנסוע
+Vehicle_ID,Current_Edge,Lane,Speed,Distance_to_Junction,Current_Junction,Next_Vehicle,Distance_to_Next_Vehicle,Destination_Junction,Use_Case_Description
+V_001,A1A2,0,12.5,5.0,A1,V_002,2,C3,A vehicle approaching an intersection
+V_002,A1A2,0,14.3,12.8,A1,None,None,B2,A vehicle relatively close to the intersection, but not in a critical situation
+V_003,B1B0,1,10.0,45.6,B1,V_004,3,A0,A vehicle on a long road section – not considered as approaching the intersection
+V_004,B1B0,1,9.2,15.4,B1,None,None,C1,A vehicle in an inner lane with a large distance to the intersection
+V_005,C2C1,2,0.0,0.0,C1,None,None,A2,A vehicle stopped at the intersection (due to a traffic light/stop sign)
+V_006,A0B0,0,22.0,1.5,B0,None,None,C0,A vehicle positioned right before the intersection – a critical scenario
+V_007,B2B1,1,18.3,3.0,B1,V_008,1,C2,A vehicle slowing down before the intersection due to traffic congestion
+V_008,B2B1,1,0.0,2.5,B1,None,None,C2,A vehicle stuck in traffic just before the intersection
+V_009,C1C2,2,30.0,100.0,None,None,None,A1,A vehicle very far from the intersection – outside the dynamic context of the junction
+V_010,A2A1,0,25.0,0.2,A1,V_011,3.5,B0,A vehicle right before a green light – smooth traffic flow
+V_011,A2A1,0,0.0,0.2,A1,None,None,B0,A vehicle stopped at the intersection line – waiting for a signal to move
