@@ -34,7 +34,7 @@ class SimulationRunner:
         # Any appeal to traci should be done from VehicleController 
        
         # Initialize DataGenerator
-        self.data_generator = DataGenerator(self.logger)
+        self.data_generator = DataGenerator(self.logger, "export_data")
         
         # Simulation parameters
         self.delay = delay
@@ -150,5 +150,5 @@ class SimulationRunner:
                             class_name="SimulationRunner", function_name="log_nodes")
 
 
-        if step_number % 20 == 0:
-            self.data_generator.export_data(step_number, self.filtered_static_nodes)
+        # if step_number % 20 == 0:
+        self.data_generator.export_data(step_number, self.filtered_static_nodes)

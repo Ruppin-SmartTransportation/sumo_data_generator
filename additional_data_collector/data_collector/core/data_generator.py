@@ -7,8 +7,9 @@ import networkx as nx
 import xml.etree.ElementTree as ET
 
 class DataGenerator:
-    def __init__(self, logger):
+    def __init__(self, logger, export_data_directory):
         self.logger = logger
+        self.export_data_directory = export_data_directory
         self.reset_files()
         self.grid_net_xml_path = r"C:\Users\Matan\project_SmartTransportationRuppin\sumo_data_generator\additional_data_collector\data_collector\sumo_config\my_3x3_grid.net.xml"
         self.load_junction_types_from_netxml(self.grid_net_xml_path)
@@ -91,16 +92,16 @@ class DataGenerator:
         """ Resets the export data content and content of the CSV files. """
 
         # Reset the export data directory
-        if os.path.exists("export_data"):
-            for file in os.listdir("export_data"):
-                file_path = os.path.join("export_data", file)
+        if os.path.exists(self.export_data_directory):
+            for file in os.listdir(self.export_data_directory):
+                file_path = os.path.join(self.export_data_directory, file)
                 try:
                     if os.path.isfile(file_path):
                         os.unlink(file_path)
                 except Exception as e:
                     print(e)
         else:
-            os.makedirs("export_data")
+            os.makedirs(self.export_data_directory)
 
         files_to_reset = [
             "export_data/junction_data.csv",
@@ -306,7 +307,7 @@ class DataGenerator:
 
     def export_junction_data_to_csv(self, step_number, junction_positions):
         """ Exports junction positions, types, and vehicle counts to a CSV file. """
-        csv_file_path = "export_data/junction_data.csv"
+        csv_file_path = self.export_data_directory + "/junction_data.csv"
         file_exists = os.path.isfile(csv_file_path)
 
         with open(csv_file_path, mode='a', newline='') as csv_file:  # Change mode to 'a'
@@ -401,7 +402,7 @@ class DataGenerator:
     
     def export_vehicle_data_to_csv(self, step_number):
         """ Exports vehicle data to a CSV file. """
-        csv_file_path = "export_data/vehicle_data.csv"
+        csv_file_path = self.export_data_directory + "/vehicle_data.csv"
         file_exists = os.path.isfile(csv_file_path)
 
         with open(csv_file_path, mode='a', newline='') as csv_file:  # Change mode to 'a'
