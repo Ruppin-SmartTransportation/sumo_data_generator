@@ -19,7 +19,7 @@ class JunctionController:
             traci.junction.subscribeContext(
                 junction_id,
                 traci.constants.CMD_GET_VEHICLE_VARIABLE,  # vehicle information
-                20.0  # radius in meters to track vehicles around the junction
+                100.0  # radius in meters to track vehicles around the junction
             )
 
     def get_junction_info(self, junction_id):

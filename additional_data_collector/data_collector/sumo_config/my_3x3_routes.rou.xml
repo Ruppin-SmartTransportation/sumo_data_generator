@@ -17,4 +17,10 @@
     <flow id="flow_4" type="car" begin="0" end="3600" vehsPerHour="70" route="route_4"/>
     <flow id="flow_5" type="car" begin="0" end="3600" vehsPerHour="50" route="route_5"/>
     <flow id="flow_6" type="car" begin="0" end="3600" vehsPerHour="90" route="route_6"/>
+    <flow id="flow_7" type="car" begin="10" end="3600" vehsPerHour="100" route="route_1"/>
+    <flow id="flow_8" type="car" begin="20" end="3600" vehsPerHour="80" route="route_2"/>
+    <flow id="flow_9" type="car" begin="30" end="3600" vehsPerHour="60" route="route_3"/>
+    <flow id="flow_10" type="car" begin="40" end="3600" vehsPerHour="70" route="route_4"/>
+    <flow id="flow_11" type="car" begin="50" end="3600" vehsPerHour="50" route="route_5"/>
+    <flow id="flow_12" type="car" begin="60" end="3600" vehsPerHour="90" route="route_6"/>
 </routes>

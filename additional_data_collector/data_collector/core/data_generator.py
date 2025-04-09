@@ -118,7 +118,7 @@ class DataGenerator:
                 elif "vehicle_data.csv" in file_path:
                     writer.writerow(['Step Number', 'Vehicle ID', 'Vehicle Type', 'X Coordinate', 'Y Coordinate', 'Length Dimention', 'Width Dimention' ,'Speed', 'Acceleration' , 'Route ID', 'Route Edges', 'Lane ID', 'Lane Position', 'Lane Index', 'Changing Lane', 'Left Signal', 'Right Signal', 'Leader ID', 'Leader Distance', 'Driving Status', 'Is Near Exit'])
                 elif "fixed_road_edges_data.csv" in file_path:
-                    writer.writerow(['Edge ID <> Lane ID', 'Source', 'Destination', 'Length', 'Speed Limit', 'Current Traffic Flow', 'Road Type'])
+                    writer.writerow(['Edge ID <> Lane ID', 'Source', 'Destination', 'Length', 'Speed Limit', 'Road Type'])
                 elif "dynamic_vehicle_movement_edges_data.csv" in file_path:
                     writer.writerow(['Step Number', 'Vehicle ID', 'Current Edge', 'Current Lane', 'Speed', 'Nearest Junction (Current)', 'Distance to Nearest Junction', 'Next (Nearest) Vehicle', 'Distance to Next Vehicle', 'Destination Junction'])
 
@@ -279,8 +279,8 @@ class DataGenerator:
                         'Speed': f"{vehicle_speed:.3f}",
                         'Nearest Junction (Current)': nearest_junction if nearest_junction is not None else 'None',  # Fallback if None
                         'Distance to Nearest Junction': f"{distance_to_nearest_junction:.3f}" if distance_to_nearest_junction is not None else 'None',  # Fallback if None
-                        'Next (Nearest) Vehicle': next_vehicle if distance_to_next_vehicle <= 100 else 'None',
-                        'Distance to Next Vehicle': f"{distance_to_next_vehicle:.3f}" if distance_to_next_vehicle <= 100 else 'None',
+                        'Next (Nearest) Vehicle': next_vehicle if distance_to_next_vehicle <= 300 else 'None',
+                        'Distance to Next Vehicle': f"{distance_to_next_vehicle:.3f}" if distance_to_next_vehicle <= 300 else 'None',
                         'Destination Junction': destination_junction
                     })
 
@@ -317,7 +317,7 @@ class DataGenerator:
         and returns the next vehicle's ID and the distance to it.
         """
         next_vehicle = None
-        min_distance = float('inf')  # Initialize with a large number for minimum comparison.
+        min_distance = float(10000)  # Initialize with a large number for minimum comparison.
 
         # Get a list of all vehicles on the same road (edge).
         vehicles_on_edge = list(traci.edge.getLastStepVehicleIDs(vehicle_edge))  # Convert tuple to list
@@ -352,7 +352,7 @@ class DataGenerator:
         root = tree.getroot()
 
         file_exists = os.path.isfile(csv_file_path)
-        fieldnames = ['Edge ID <> Lane ID', 'Source', 'Destination', 'Length', 'Speed Limit', 'Current Traffic Flow', 'Road Type']
+        fieldnames = ['Edge ID <> Lane ID', 'Source', 'Destination', 'Length', 'Speed Limit', 'Road Type']
 
         with open(csv_file_path, mode='a', newline='') as csv_file:  # Append mode ('a')
             writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
@@ -386,8 +386,6 @@ class DataGenerator:
                     speed_limit = float(lane.get('speed', 0)) 
                     road_type = "highway" if speed_limit * 3.6 >= 80 else "local road" if speed_limit * 3.6 >= 50 else "residential/street"
                     
-                    # Current traffic flow is not available in the XML, so we set it to 0.0
-                    current_traffic_flow = 0.0
 
                     # Write data to CSV
                     writer.writerow({
@@ -397,7 +395,6 @@ class DataGenerator:
                         'Length': length,
                         'Speed Limit': speed_limit,
                         'Road Type': road_type,
-                        'Current Traffic Flow': current_traffic_flow
                     })
 
         self.logger.log(f"✅ Fixed road edges data exported successfully to '{csv_file_path}'", "INFO",
@@ -534,7 +531,7 @@ class DataGenerator:
                 right_signal = bool(signals & 2)  # Whether the right turn signal is on
                 # Distance to the leading vehicle
                 leader_info = traci.vehicle.getLeader(vehicle_id)  # ID and distance of the vehicle ahead
-                leader_id = leader_info[0] if leader_info else None
+                leader_id = leader_info[0] if leader_info else "N/A"  # ID of the leading vehicle
                 leader_distance = leader_info[1] if leader_info else float('inf')
                 # Driving status
                 driving_status = "Accelerating" if acceleration > 0 else "Decelerating" if acceleration < 0 else "Cruising"
@@ -560,7 +557,7 @@ class DataGenerator:
                     'Changing Lane': changing_lane,
                     'Left Signal': left_signal,
                     'Right Signal': right_signal,
-                    'Leader ID': leader_id,
+                    'Leader ID': leader_id if leader_id else "N/A",
                     'Leader Distance': f"{leader_distance:.3f}" if leader_id else "N/A",
                     'Driving Status': driving_status,
                     'Is Near Exit': is_near_exit

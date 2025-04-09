@@ -150,5 +150,5 @@ class SimulationRunner:
                             class_name="SimulationRunner", function_name="log_nodes")
 
 
-        if step_number % 20 == 0:
+        if step_number % 10 == 0:
             self.data_generator.export_data(step_number, self.filtered_static_nodes)
