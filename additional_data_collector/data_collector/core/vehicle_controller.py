@@ -48,23 +48,23 @@ class VehicleController:
             self.logger.log("⚠️ No vehicles detected in the simulation!", "WARNING", "red",
                             class_name="VehicleController", function_name="log_vehicle_info")
 
-    def track_fastest_vehicle(self, step):
-        """ Tracks the fastest vehicle in the simulation for each step. """
-        vehicles = self.get_active_vehicles()
-        current_fastest_vehicle = None
-        current_fastest_speed = 0
-        for v_id in vehicles:
-            speed = traci.vehicle.getSpeed(v_id)
-            if speed > current_fastest_speed:
-                current_fastest_speed = speed
-                current_fastest_vehicle = v_id
+    # def track_fastest_vehicle(self, step):
+    #     """ Tracks the fastest vehicle in the simulation for each step. """
+    #     vehicles = self.get_active_vehicles()
+    #     current_fastest_vehicle = None
+    #     current_fastest_speed = 0
+    #     for v_id in vehicles:
+    #         speed = traci.vehicle.getSpeed(v_id)
+    #         if speed > current_fastest_speed:
+    #             current_fastest_speed = speed
+    #             current_fastest_vehicle = v_id
 
-        # Check if this step has a faster vehicle than previously recorded
-        if current_fastest_speed > self.fastest_speed:
-            self.fastest_speed = current_fastest_speed
-            self.fastest_vehicle = current_fastest_vehicle
-            self.fastest_step = step
+    #     # Check if this step has a faster vehicle than previously recorded
+    #     if current_fastest_speed > self.fastest_speed:
+    #         self.fastest_speed = current_fastest_speed
+    #         self.fastest_vehicle = current_fastest_vehicle
+    #         self.fastest_step = step
 
-    def get_fastest_vehicle_summary(self):
-        """ Returns the summary of the fastest vehicle recorded. """
-        return self.fastest_vehicle, self.fastest_speed, self.fastest_step
+    # def get_fastest_vehicle_summary(self):
+    #     """ Returns the summary of the fastest vehicle recorded. """
+    #     return self.fastest_vehicle, self.fastest_speed, self.fastest_step

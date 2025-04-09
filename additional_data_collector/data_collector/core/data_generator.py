@@ -276,11 +276,11 @@ class DataGenerator:
                         'Vehicle ID': vehicle_id,
                         'Current Edge': vehicle_edge,
                         'Current Lane': vehicle_lane,
-                        'Speed': vehicle_speed,
+                        'Speed': f"{vehicle_speed:.3f}",
                         'Nearest Junction (Current)': nearest_junction if nearest_junction is not None else 'None',  # Fallback if None
-                        'Distance to Nearest Junction': distance_to_nearest_junction if distance_to_nearest_junction is not None else 'None',  # Fallback if None
+                        'Distance to Nearest Junction': f"{distance_to_nearest_junction:.3f}" if distance_to_nearest_junction is not None else 'None',  # Fallback if None
                         'Next (Nearest) Vehicle': next_vehicle if distance_to_next_vehicle <= 100 else 'None',
-                        'Distance to Next Vehicle': distance_to_next_vehicle if distance_to_next_vehicle <= 100 else 'None',
+                        'Distance to Next Vehicle': f"{distance_to_next_vehicle:.3f}" if distance_to_next_vehicle <= 100 else 'None',
                         'Destination Junction': destination_junction
                     })
 
