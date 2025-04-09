@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import csv
 import numpy as np
 import networkx as nx
+import sumolib
 import xml.etree.ElementTree as ET
 
 class DataGenerator:
@@ -11,9 +12,9 @@ class DataGenerator:
         self.logger = logger
         self.export_data_directory = export_data_directory
         self.reset_files()
-        self.grid_net_xml_path = r"<ADD YOUR PATH>\sumo_data_generator\additional_data_collector\data_collector\sumo_config\my_3x3_grid.net.xml"
+        self.grid_net_xml_path = r"C:\Users\Matan\project_SmartTransportationRuppin\sumo_data_generator\additional_data_collector\data_collector\sumo_config\my_3x3_grid.net.xml"
         self.load_junction_types_from_netxml(self.grid_net_xml_path)
-        self.routes_rou_xml_path = r"<ADD YOUR PATH>\sumo_data_generator\additional_data_collector\data_collector\sumo_config\my_3x3_routes.rou.xml"
+        self.routes_rou_xml_path = r"C:\Users\Matan\project_SmartTransportationRuppin\sumo_data_generator\additional_data_collector\data_collector\sumo_config\my_3x3_routes.rou.xml"
         self.load_routes_and_flows_from_rouxml(self.routes_rou_xml_path)
         self.export_fixed_road_edges = True
     
@@ -133,11 +134,108 @@ class DataGenerator:
         self.export_fixed_road_edges_data_to_csv()
 
         self.export_dynamic_vehicle_movement_edges_data_to_csv(step_number, filtered_static_nodes)
+        net = sumolib.net.readNet(self.grid_net_xml_path)
+        self.export_network_graph(net,step_number)
 
         # Call the new function to export network graph
-        # self.export_network_graph(step_number, junction_positions)
+        # self.export_network_graph_deprecated(step_number, junction_positions)
         # Call the new function to export adjacency matrix
         # self.export_junctions_adjacency_matrix(step_number, junction_positions)
+
+    def export_network_graph(self, net, step):
+        """ Exports the network graph as an image using matplotlib. """
+        
+        self.logger.log("📡 Exporting network graph...", "INFO", 
+                        class_name="DataGenerator", function_name="export_network_graph")    
+
+        # Create a directed graph
+        snapshots_dir = "export_data/network_graph"
+        os.makedirs(snapshots_dir, exist_ok=True)  # Create the directory if it doesn't exist
+        G = nx.DiGraph()
+
+        # Add junctions as nodes
+        junction_nodes = {}
+        for node in net.getNodes():
+            G.add_node(node.getID(), pos=(node.getCoord()[0], node.getCoord()[1]))
+            junction_nodes[node.getID()] = node.getCoord()
+
+        # Add road edges (between junctions)
+        road_edges = []
+        for edge in net.getEdges():
+            start = edge.getFromNode().getID()
+            end = edge.getToNode().getID()
+            G.add_edge(start, end)
+            road_edges.append((start, end))
+
+        # Extract vehicle positions and update edges
+        vehicles_on_edges = {}
+
+        # Get vehicle positions
+        vehicles = traci.vehicle.getIDList()
+        vehicle_nodes = {}
+        for vehicle in vehicles:
+            x, y = traci.vehicle.getPosition(vehicle)  # Get vehicle coordinates
+            edge = traci.vehicle.getRoadID(vehicle)  # Get the edge (road) where the vehicle is
+
+            # Store vehicle info under the road it belongs to
+            if edge not in vehicles_on_edges:
+                vehicles_on_edges[edge] = []
+            vehicles_on_edges[edge].append((vehicle, x, y))
+
+        # Sort vehicles by position on each edge to maintain order
+        vehicle_edges = []
+        for edge in vehicles_on_edges:
+            vehicles_on_edges[edge].sort(key=lambda v: v[1])  # Sort by x-coordinate
+
+            # Get the start and end junctions for this edge
+            try:
+                edge_obj = net.getEdge(edge)
+            except KeyError:
+                continue
+            
+            start_junction = edge_obj.getFromNode().getID()
+            end_junction = edge_obj.getToNode().getID()
+
+            prev_entity = start_junction  # Start connecting from the junction
+
+            for vehicle, x, y in vehicles_on_edges[edge]:
+                G.add_node(vehicle, pos=(x, y))  # Add vehicle node
+                vehicle_nodes[vehicle] = (x, y)
+                G.add_edge(prev_entity, vehicle)  # Connect previous entity (junction or vehicle) to this vehicle
+                vehicle_edges.append((prev_entity, vehicle))
+                prev_entity = vehicle  # Update previous entity
+
+            # Finally, connect the last vehicle to the end junction
+            G.add_edge(prev_entity, end_junction)
+            vehicle_edges.append((prev_entity, end_junction))
+
+        # Extract node positions
+        pos = nx.get_node_attributes(G, 'pos')
+
+        # Draw the graph
+        plt.figure(figsize=(10, 8))
+
+        # Draw road edges (junction-to-junction) in thick grey
+        nx.draw_networkx_edges(G, pos, edgelist=road_edges, edge_color='grey', width=2)
+
+        # Draw vehicle edges in blue
+        nx.draw_networkx_edges(G, pos, edgelist=vehicle_edges, edge_color='blue', width=1)
+
+        # Draw junctions (larger nodes)
+        nx.draw_networkx_nodes(G, pos, nodelist=list(junction_nodes.keys()), node_size=300, node_color='red', label="Junctions")
+
+        # Draw vehicles (smaller nodes)
+        nx.draw_networkx_nodes(G, pos, nodelist=list(vehicle_nodes.keys()), node_size=150, node_color='blue', label="Vehicles")
+
+        # Add labels
+        nx.draw_networkx_labels(G, pos, font_size=8)
+
+        plt.title("SUMO Network with Vehicles Positioned on Roads")
+        plt.legend()
+        plt.savefig(f"export_data/network_graph/grid_snap_{step}.png")
+
+        self.logger.log(f"✅ Network graph exported successfully as 'grid_snap_{step}.png'", "INFO",
+                        class_name="DataGenerator", function_name="export_network_graph")
 
     def export_dynamic_vehicle_movement_edges_data_to_csv(self, step_number, filtered_static_nodes):
         """ Exports dynamic vehicle movement edges data to a CSV file. """
@@ -475,7 +573,7 @@ class DataGenerator:
     #####################################################################
     # The following function is not used in the current implementation. It is kept for future use.
 
-    def export_network_graph(self, step_number, junction_positions):
+    def export_network_graph_deprecated(self, step_number, junction_positions):
         """ Exports the network graph as an image using matplotlib. """
         
         self.logger.log("📡 Exporting network graph...", "INFO", 
