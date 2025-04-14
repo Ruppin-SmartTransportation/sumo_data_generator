@@ -1,4 +1,5 @@
 import traci
+import random
 
 class TrafficController:
     """ Controls traffic lights in the SUMO simulation. """
@@ -27,3 +28,22 @@ class TrafficController:
                 except traci.TraCIException as e:
                     self.logger.log(f"⚠️ Error updating traffic light {tl_id}: {e}", "ERROR", "red",
                                     class_name="TrafficController", function_name="update_traffic_light")
+                    
+    def adjust_random_traffic_light(self):
+        """ Adjusts the traffic light of a random junction. """
+        try:
+            tl_id = random.choice(self.traffic_lights)
+            current_phase = traci.trafficlight.getPhase(tl_id)
+            new_phase = (current_phase + 1) % 4
+            traci.trafficlight.setPhase(tl_id, new_phase)
+
+            # Log the phase change
+            # add to the log data of which junction id are being changed
+            self.logger.log(f"🔄 Adjusting traffic light {tl_id} from phase {current_phase} to {new_phase}", "INFO", "yellow",
+                            class_name="TrafficController", function_name="adjust_random_traffic_light")
+
+
+        except traci.TraCIException as e:
+            self.logger.log(f"⚠️ Error adjusting random traffic light: {e}", "ERROR", "red",
+                            class_name="TrafficController", function_name="adjust_random_traffic_light")
+

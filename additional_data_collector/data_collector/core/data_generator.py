@@ -6,6 +6,8 @@ import numpy as np
 import networkx as nx
 import sumolib
 import xml.etree.ElementTree as ET
+from collections import defaultdict
+
 
 class DataGenerator:
     def __init__(self, logger, export_data_directory):
@@ -14,10 +16,47 @@ class DataGenerator:
         self.reset_files()
         self.grid_net_xml_path = r"C:\Users\Matan\project_SmartTransportationRuppin\sumo_data_generator\additional_data_collector\data_collector\sumo_config\my_3x3_grid.net.xml"
         self.load_junction_types_from_netxml(self.grid_net_xml_path)
+        self.extract_internal_lane_speeds_by_junction(self.grid_net_xml_path)
         self.routes_rou_xml_path = r"C:\Users\Matan\project_SmartTransportationRuppin\sumo_data_generator\additional_data_collector\data_collector\sumo_config\my_3x3_routes.rou.xml"
         self.load_routes_and_flows_from_rouxml(self.routes_rou_xml_path)
         self.export_fixed_road_edges = True
     
+    def extract_internal_lane_speeds_by_junction(self, net_file_path):
+        # Parse the XML file
+        tree = ET.parse(net_file_path)
+        root = tree.getroot()
+
+        # Dictionary to hold internal lane speeds per junction
+        junction_speeds = defaultdict(list)
+
+        for edge in root.findall('edge'):
+            edge_id = edge.get('id')
+
+            # Only consider internal edges (those starting with ":")
+            if not edge_id.startswith(":"):
+                continue
+
+            # Try to extract the junction id (e.g., ":A0_1" -> "A0")
+            parts = edge_id[1:].split('_')
+            if len(parts) < 1:
+                continue
+            junction_id = parts[0]
+
+            for lane in edge.findall('lane'):
+                speed = float(lane.get('speed'))
+                junction_speeds[junction_id].append(speed)
+
+        # Calculate the average speed per junction
+        average_speeds = {}
+        for junction_id, speeds in junction_speeds.items():
+            if speeds:
+                avg_speed = sum(speeds) / len(speeds)
+                # keep only 3 decimal points
+                avg_speed = round(avg_speed, 3)
+                average_speeds[junction_id] = avg_speed
+
+        self.junctions_speed_limits = average_speeds
+
     def load_routes_and_flows_from_rouxml(self, routes_rou_xml_path):
         """
         Parses the .rou.xml file to retrieve routes and their edges, 
@@ -437,51 +476,26 @@ class DataGenerator:
 
     def calculate_congestion_level_at_junction(self, junction_id, average_speed_in_junction):
         """ Calculates the congestion level at a junction based on the number of vehicles. """
-        speed_limit = self.get_max_speed_at_junction(junction_id)
-        if speed_limit == 0:
+
+        if average_speed_in_junction == 0:
+            return "Low Congestion" ## No vehicles are moving
+
+        # go over self.junctions_speed_limits and find the speed limit for the junction_id
+        speed_limit = self.junctions_speed_limits.get(junction_id, 999.999)
+        if speed_limit == 999.999:
             return "Error"
         
         # Compute the speed ratio (percentage of speed limit)
         speed_ratio = (average_speed_in_junction / speed_limit) * 100
 
         # Determine congestion level based on predefined thresholds
-        if speed_ratio >= 70:
+        if speed_ratio >= 80:
             return "Low Congestion"  # Free flow of traffic
-        elif 30 <= speed_ratio < 70:
+        elif 40 <= speed_ratio < 80:
             return "Medium Congestion"  # Noticeable slowdown
         else:
             return "High Congestion"  # Heavy traffic / Traffic jam
     
-    def get_max_speed_at_junction(self, junction_id):
-        """ 
-        Retrieves the maximum speed of edges connected to a junction.
-        Uses available methods to determine the speed limit.
-        """
-
-        # Getting all edges connected to the junction
-        incoming_edges = traci.junction.getIncomingEdges(junction_id)
-        outgoing_edges = traci.junction.getOutgoingEdges(junction_id)
-        all_edges = set(incoming_edges + outgoing_edges)
-        
-        # Collecting the maximum speeds available from these edges
-        max_speeds = []
-        for edge in all_edges:
-            try:
-                # Try retrieving a relevant speed attribute (e.g., current max speed)
-                # If getMaxSpeed is unavailable, use another related method or adjust accordingly
-                # speed = float(traci.edge.get(('speed', 0)))  # Ensure this is valid in your setup
-                speed = traci.edge.getMaxSpeed(edge)
-                max_speeds.append(speed)
-            except AttributeError:
-                # Handle the case if getMaxSpeed is unavailable
-                # todo: Add alternative method to retrieve speed
-                self.logger.log(f"⚠️ AttributeError: getMaxSpeed not available for edge {edge}", "WARNING", 
-                                class_name="DataGenerator", function_name="get_max_speed_at_junction")
-                pass
-
-        # Return the highest speed found (if any) or 0.0 if not found
-        return max(max_speeds) if max_speeds else 0.0
-
 
     def calculate_average_speed_at_junction(self, junction_id):
         vehicles_nearby = traci.junction.getContextSubscriptionResults(junction_id)
@@ -492,6 +506,7 @@ class DataGenerator:
         speeds = [traci.vehicle.getSpeed(vehicle_id) for vehicle_id in vehicles_nearby.keys()]
         
         average_speed = sum(speeds) / len(speeds)
+        average_speed = round(average_speed, 3)
         return average_speed
 
     

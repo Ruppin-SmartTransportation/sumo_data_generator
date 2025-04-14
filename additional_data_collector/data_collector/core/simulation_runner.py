@@ -69,6 +69,10 @@ class SimulationRunner:
                 # if step % 5 == 0:
                 #     self.adjust_vehicle_speeds_randomly()
 
+                # adjust the traffic light of random junction every 10 steps
+                # if step % 10 == 0:
+                #     self.traffic_controller.adjust_random_traffic_light()
+
                 # Log all vehicle information
                 self.vehicle_controller.log_vehicle_info()
 
