@@ -14,10 +14,10 @@ class DataGenerator:
         self.logger = logger
         self.export_data_directory = export_data_directory
         self.reset_files()
-        self.grid_net_xml_path = r"C:\Users\Matan\project_SmartTransportationRuppin\sumo_data_generator\additional_data_collector\data_collector\sumo_config\my_3x3_grid.net.xml"
+        self.grid_net_xml_path = r"<ADD YOUR PATH>\sumo_data_generator\additional_data_collector\data_collector\sumo_config\my_3x3_grid.net.xml"
         self.load_junction_types_from_netxml(self.grid_net_xml_path)
         self.extract_internal_lane_speeds_by_junction(self.grid_net_xml_path)
-        self.routes_rou_xml_path = r"C:\Users\Matan\project_SmartTransportationRuppin\sumo_data_generator\additional_data_collector\data_collector\sumo_config\my_3x3_routes.rou.xml"
+        self.routes_rou_xml_path = r"<ADD YOUR PATH>\sumo_data_generator\additional_data_collector\data_collector\sumo_config\my_3x3_routes.rou.xml"
         self.load_routes_and_flows_from_rouxml(self.routes_rou_xml_path)
         self.export_fixed_road_edges = True
     
