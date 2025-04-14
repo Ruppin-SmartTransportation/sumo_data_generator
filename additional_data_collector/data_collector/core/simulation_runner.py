@@ -65,22 +65,26 @@ class SimulationRunner:
                     self.most_veh = num_vehicles
                     self.most_veh_step = step
 
-                # Adjust the speed of one random vehicle every 5 steps
-                if step % 5 == 0:
-                    self.adjust_vehicle_speeds_randomly()
+                # # Adjust the speed of one random vehicle every 5 steps
+                # if step % 5 == 0:
+                #     self.adjust_vehicle_speeds_randomly()
+
+                # adjust the traffic light of random junction every 10 steps
+                # if step % 10 == 0:
+                #     self.traffic_controller.adjust_random_traffic_light()
 
                 # Log all vehicle information
                 self.vehicle_controller.log_vehicle_info()
 
                 # Track the fastest vehicle each step
-                self.vehicle_controller.track_fastest_vehicle(step)
+                # self.vehicle_controller.track_fastest_vehicle(step)
 
             # Log the summary of the fastest vehicle
-            fastest_vehicle, fastest_speed, fastest_step = self.vehicle_controller.get_fastest_vehicle_summary()
-            self.logger.log(f"\n✅ Most vehicles on the road: {self.most_veh}, at step {self.most_veh_step}", "INFO", "green",
-                            class_name="SimulationRunner", function_name="run_simulation")
-            self.logger.log(f"🚀 Fastest vehicle: {fastest_vehicle} with speed {fastest_speed:.2f} m/s at step {fastest_step}", "INFO", "green",
-                            class_name="SimulationRunner", function_name="run_simulation")
+            # fastest_vehicle, fastest_speed, fastest_step = self.vehicle_controller.get_fastest_vehicle_summary()
+            # self.logger.log(f"\n✅ Most vehicles on the road: {self.most_veh}, at step {self.most_veh_step}", "INFO", "green",
+            #                 class_name="SimulationRunner", function_name="run_simulation")
+            # self.logger.log(f"🚀 Fastest vehicle: {fastest_vehicle} with speed {fastest_speed:.2f} m/s at step {fastest_step}", "INFO", "green",
+            #                 class_name="SimulationRunner", function_name="run_simulation")
 
         except Exception as e:
             self.logger.log(f"❌ Critical simulation error: {e}", "ERROR", "red",
@@ -93,15 +97,15 @@ class SimulationRunner:
             self.logger.close()
             self.nodes_logger.close()
 
-    def adjust_vehicle_speeds_randomly(self):
-        """ Randomly adjust the speed of one random active vehicle. """
-        vehicles = self.vehicle_controller.get_active_vehicles()
-        if vehicles:
-            selected_vehicle = random.choice(vehicles)
-            random_speed = random.uniform(5, 25)  # Speed between 5 and 25 m/s
-            self.vehicle_controller.update_vehicle_speed(selected_vehicle, random_speed)
-            self.logger.log(f"🔀 Randomly adjusted speed of vehicle {selected_vehicle} to {random_speed:.2f} m/s",
-                            "INFO", "blue", class_name="SimulationRunner", function_name="adjust_vehicle_speeds_randomly")
+    # def adjust_vehicle_speeds_randomly(self):
+    #     """ Randomly adjust the speed of one random active vehicle. """
+    #     vehicles = self.vehicle_controller.get_active_vehicles()
+    #     if vehicles:
+    #         selected_vehicle = random.choice(vehicles)
+    #         random_speed = random.uniform(5, 25)  # Speed between 5 and 25 m/s
+    #         self.vehicle_controller.update_vehicle_speed(selected_vehicle, random_speed)
+    #         self.logger.log(f"🔀 Randomly adjusted speed of vehicle {selected_vehicle} to {random_speed:.2f} m/s",
+    #                         "INFO", "blue", class_name="SimulationRunner", function_name="adjust_vehicle_speeds_randomly")
     
     def get_static_nodes(self):
         """ Retrieves all static nodes (junctions) through JunctionController. """
@@ -150,5 +154,5 @@ class SimulationRunner:
                             class_name="SimulationRunner", function_name="log_nodes")
 
 
-        # if step_number % 20 == 0:
-        self.data_generator.export_data(step_number, self.filtered_static_nodes)
+        if step_number % 10 == 0:
+            self.data_generator.export_data(step_number, self.filtered_static_nodes)

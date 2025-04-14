@@ -4,7 +4,10 @@ import matplotlib.pyplot as plt
 import csv
 import numpy as np
 import networkx as nx
+import sumolib
 import xml.etree.ElementTree as ET
+from collections import defaultdict
+
 
 class DataGenerator:
     def __init__(self, logger, export_data_directory):
@@ -13,10 +16,47 @@ class DataGenerator:
         self.reset_files()
         self.grid_net_xml_path = r"<ADD YOUR PATH>\sumo_data_generator\additional_data_collector\data_collector\sumo_config\my_3x3_grid.net.xml"
         self.load_junction_types_from_netxml(self.grid_net_xml_path)
+        self.extract_internal_lane_speeds_by_junction(self.grid_net_xml_path)
         self.routes_rou_xml_path = r"<ADD YOUR PATH>\sumo_data_generator\additional_data_collector\data_collector\sumo_config\my_3x3_routes.rou.xml"
         self.load_routes_and_flows_from_rouxml(self.routes_rou_xml_path)
         self.export_fixed_road_edges = True
     
+    def extract_internal_lane_speeds_by_junction(self, net_file_path):
+        # Parse the XML file
+        tree = ET.parse(net_file_path)
+        root = tree.getroot()
+
+        # Dictionary to hold internal lane speeds per junction
+        junction_speeds = defaultdict(list)
+
+        for edge in root.findall('edge'):
+            edge_id = edge.get('id')
+
+            # Only consider internal edges (those starting with ":")
+            if not edge_id.startswith(":"):
+                continue
+
+            # Try to extract the junction id (e.g., ":A0_1" -> "A0")
+            parts = edge_id[1:].split('_')
+            if len(parts) < 1:
+                continue
+            junction_id = parts[0]
+
+            for lane in edge.findall('lane'):
+                speed = float(lane.get('speed'))
+                junction_speeds[junction_id].append(speed)
+
+        # Calculate the average speed per junction
+        average_speeds = {}
+        for junction_id, speeds in junction_speeds.items():
+            if speeds:
+                avg_speed = sum(speeds) / len(speeds)
+                # keep only 3 decimal points
+                avg_speed = round(avg_speed, 3)
+                average_speeds[junction_id] = avg_speed
+
+        self.junctions_speed_limits = average_speeds
+
     def load_routes_and_flows_from_rouxml(self, routes_rou_xml_path):
         """
         Parses the .rou.xml file to retrieve routes and their edges, 
@@ -117,7 +157,7 @@ class DataGenerator:
                 elif "vehicle_data.csv" in file_path:
                     writer.writerow(['Step Number', 'Vehicle ID', 'Vehicle Type', 'X Coordinate', 'Y Coordinate', 'Length Dimention', 'Width Dimention' ,'Speed', 'Acceleration' , 'Route ID', 'Route Edges', 'Lane ID', 'Lane Position', 'Lane Index', 'Changing Lane', 'Left Signal', 'Right Signal', 'Leader ID', 'Leader Distance', 'Driving Status', 'Is Near Exit'])
                 elif "fixed_road_edges_data.csv" in file_path:
-                    writer.writerow(['Edge ID <> Lane ID', 'Source', 'Destination', 'Length', 'Speed Limit', 'Current Traffic Flow', 'Road Type'])
+                    writer.writerow(['Edge ID <> Lane ID', 'Source', 'Destination', 'Length', 'Speed Limit', 'Road Type'])
                 elif "dynamic_vehicle_movement_edges_data.csv" in file_path:
                     writer.writerow(['Step Number', 'Vehicle ID', 'Current Edge', 'Current Lane', 'Speed', 'Nearest Junction (Current)', 'Distance to Nearest Junction', 'Next (Nearest) Vehicle', 'Distance to Next Vehicle', 'Destination Junction'])
 
@@ -133,11 +173,108 @@ class DataGenerator:
         self.export_fixed_road_edges_data_to_csv()
 
         self.export_dynamic_vehicle_movement_edges_data_to_csv(step_number, filtered_static_nodes)
+        net = sumolib.net.readNet(self.grid_net_xml_path)
+        self.export_network_graph(net,step_number)
 
         # Call the new function to export network graph
-        # self.export_network_graph(step_number, junction_positions)
+        # self.export_network_graph_deprecated(step_number, junction_positions)
         # Call the new function to export adjacency matrix
         # self.export_junctions_adjacency_matrix(step_number, junction_positions)
+
+    def export_network_graph(self, net, step):
+        """ Exports the network graph as an image using matplotlib. """
+        
+        self.logger.log("📡 Exporting network graph...", "INFO", 
+                        class_name="DataGenerator", function_name="export_network_graph")    
+
+        # Create a directed graph
+        snapshots_dir = "export_data/network_graph"
+        os.makedirs(snapshots_dir, exist_ok=True)  # Create the directory if it doesn't exist
+        G = nx.DiGraph()
+
+        # Add junctions as nodes
+        junction_nodes = {}
+        for node in net.getNodes():
+            G.add_node(node.getID(), pos=(node.getCoord()[0], node.getCoord()[1]))
+            junction_nodes[node.getID()] = node.getCoord()
+
+        # Add road edges (between junctions)
+        road_edges = []
+        for edge in net.getEdges():
+            start = edge.getFromNode().getID()
+            end = edge.getToNode().getID()
+            G.add_edge(start, end)
+            road_edges.append((start, end))
+
+        # Extract vehicle positions and update edges
+        vehicles_on_edges = {}
+
+        # Get vehicle positions
+        vehicles = traci.vehicle.getIDList()
+        vehicle_nodes = {}
+        for vehicle in vehicles:
+            x, y = traci.vehicle.getPosition(vehicle)  # Get vehicle coordinates
+            edge = traci.vehicle.getRoadID(vehicle)  # Get the edge (road) where the vehicle is
+
+            # Store vehicle info under the road it belongs to
+            if edge not in vehicles_on_edges:
+                vehicles_on_edges[edge] = []
+            vehicles_on_edges[edge].append((vehicle, x, y))
+
+        # Sort vehicles by position on each edge to maintain order
+        vehicle_edges = []
+        for edge in vehicles_on_edges:
+            vehicles_on_edges[edge].sort(key=lambda v: v[1])  # Sort by x-coordinate
+
+            # Get the start and end junctions for this edge
+            try:
+                edge_obj = net.getEdge(edge)
+            except KeyError:
+                continue
+            
+            start_junction = edge_obj.getFromNode().getID()
+            end_junction = edge_obj.getToNode().getID()
+
+            prev_entity = start_junction  # Start connecting from the junction
+
+            for vehicle, x, y in vehicles_on_edges[edge]:
+                G.add_node(vehicle, pos=(x, y))  # Add vehicle node
+                vehicle_nodes[vehicle] = (x, y)
+                G.add_edge(prev_entity, vehicle)  # Connect previous entity (junction or vehicle) to this vehicle
+                vehicle_edges.append((prev_entity, vehicle))
+                prev_entity = vehicle  # Update previous entity
+
+            # Finally, connect the last vehicle to the end junction
+            G.add_edge(prev_entity, end_junction)
+            vehicle_edges.append((prev_entity, end_junction))
+
+        # Extract node positions
+        pos = nx.get_node_attributes(G, 'pos')
+
+        # Draw the graph
+        plt.figure(figsize=(10, 8))
+
+        # Draw road edges (junction-to-junction) in thick grey
+        nx.draw_networkx_edges(G, pos, edgelist=road_edges, edge_color='grey', width=2)
+
+        # Draw vehicle edges in blue
+        nx.draw_networkx_edges(G, pos, edgelist=vehicle_edges, edge_color='blue', width=1)
+
+        # Draw junctions (larger nodes)
+        nx.draw_networkx_nodes(G, pos, nodelist=list(junction_nodes.keys()), node_size=300, node_color='red', label="Junctions")
+
+        # Draw vehicles (smaller nodes)
+        nx.draw_networkx_nodes(G, pos, nodelist=list(vehicle_nodes.keys()), node_size=150, node_color='blue', label="Vehicles")
+
+        # Add labels
+        nx.draw_networkx_labels(G, pos, font_size=8)
+
+        plt.title("SUMO Network with Vehicles Positioned on Roads")
+        plt.legend()
+        plt.savefig(f"export_data/network_graph/grid_snap_{step}.png")
+
+        self.logger.log(f"✅ Network graph exported successfully as 'grid_snap_{step}.png'", "INFO",
+                        class_name="DataGenerator", function_name="export_network_graph")
 
     def export_dynamic_vehicle_movement_edges_data_to_csv(self, step_number, filtered_static_nodes):
         """ Exports dynamic vehicle movement edges data to a CSV file. """
@@ -178,11 +315,11 @@ class DataGenerator:
                         'Vehicle ID': vehicle_id,
                         'Current Edge': vehicle_edge,
                         'Current Lane': vehicle_lane,
-                        'Speed': vehicle_speed,
+                        'Speed': f"{vehicle_speed:.3f}",
                         'Nearest Junction (Current)': nearest_junction if nearest_junction is not None else 'None',  # Fallback if None
-                        'Distance to Nearest Junction': distance_to_nearest_junction if distance_to_nearest_junction is not None else 'None',  # Fallback if None
-                        'Next (Nearest) Vehicle': next_vehicle if distance_to_next_vehicle <= 100 else 'None',
-                        'Distance to Next Vehicle': distance_to_next_vehicle if distance_to_next_vehicle <= 100 else 'None',
+                        'Distance to Nearest Junction': f"{distance_to_nearest_junction:.3f}" if distance_to_nearest_junction is not None else 'None',  # Fallback if None
+                        'Next (Nearest) Vehicle': next_vehicle if distance_to_next_vehicle <= 300 else 'None',
+                        'Distance to Next Vehicle': f"{distance_to_next_vehicle:.3f}" if distance_to_next_vehicle <= 300 else 'None',
                         'Destination Junction': destination_junction
                     })
 
@@ -219,7 +356,7 @@ class DataGenerator:
         and returns the next vehicle's ID and the distance to it.
         """
         next_vehicle = None
-        min_distance = float('inf')  # Initialize with a large number for minimum comparison.
+        min_distance = float(10000)  # Initialize with a large number for minimum comparison.
 
         # Get a list of all vehicles on the same road (edge).
         vehicles_on_edge = list(traci.edge.getLastStepVehicleIDs(vehicle_edge))  # Convert tuple to list
@@ -254,7 +391,7 @@ class DataGenerator:
         root = tree.getroot()
 
         file_exists = os.path.isfile(csv_file_path)
-        fieldnames = ['Edge ID <> Lane ID', 'Source', 'Destination', 'Length', 'Speed Limit', 'Current Traffic Flow', 'Road Type']
+        fieldnames = ['Edge ID <> Lane ID', 'Source', 'Destination', 'Length', 'Speed Limit', 'Road Type']
 
         with open(csv_file_path, mode='a', newline='') as csv_file:  # Append mode ('a')
             writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
@@ -288,8 +425,6 @@ class DataGenerator:
                     speed_limit = float(lane.get('speed', 0)) 
                     road_type = "highway" if speed_limit * 3.6 >= 80 else "local road" if speed_limit * 3.6 >= 50 else "residential/street"
                     
-                    # Current traffic flow is not available in the XML, so we set it to 0.0
-                    current_traffic_flow = 0.0
 
                     # Write data to CSV
                     writer.writerow({
@@ -299,7 +434,6 @@ class DataGenerator:
                         'Length': length,
                         'Speed Limit': speed_limit,
                         'Road Type': road_type,
-                        'Current Traffic Flow': current_traffic_flow
                     })
 
         self.logger.log(f"✅ Fixed road edges data exported successfully to '{csv_file_path}'", "INFO",
@@ -342,51 +476,26 @@ class DataGenerator:
 
     def calculate_congestion_level_at_junction(self, junction_id, average_speed_in_junction):
         """ Calculates the congestion level at a junction based on the number of vehicles. """
-        speed_limit = self.get_max_speed_at_junction(junction_id)
-        if speed_limit == 0:
+
+        if average_speed_in_junction == 0:
+            return "Low Congestion" ## No vehicles are moving
+
+        # go over self.junctions_speed_limits and find the speed limit for the junction_id
+        speed_limit = self.junctions_speed_limits.get(junction_id, 999.999)
+        if speed_limit == 999.999:
             return "Error"
         
         # Compute the speed ratio (percentage of speed limit)
         speed_ratio = (average_speed_in_junction / speed_limit) * 100
 
         # Determine congestion level based on predefined thresholds
-        if speed_ratio >= 70:
+        if speed_ratio >= 80:
             return "Low Congestion"  # Free flow of traffic
-        elif 30 <= speed_ratio < 70:
+        elif 40 <= speed_ratio < 80:
             return "Medium Congestion"  # Noticeable slowdown
         else:
             return "High Congestion"  # Heavy traffic / Traffic jam
     
-    def get_max_speed_at_junction(self, junction_id):
-        """ 
-        Retrieves the maximum speed of edges connected to a junction.
-        Uses available methods to determine the speed limit.
-        """
-
-        # Getting all edges connected to the junction
-        incoming_edges = traci.junction.getIncomingEdges(junction_id)
-        outgoing_edges = traci.junction.getOutgoingEdges(junction_id)
-        all_edges = set(incoming_edges + outgoing_edges)
-        
-        # Collecting the maximum speeds available from these edges
-        max_speeds = []
-        for edge in all_edges:
-            try:
-                # Try retrieving a relevant speed attribute (e.g., current max speed)
-                # If getMaxSpeed is unavailable, use another related method or adjust accordingly
-                # speed = float(traci.edge.get(('speed', 0)))  # Ensure this is valid in your setup
-                speed = traci.edge.getMaxSpeed(edge)
-                max_speeds.append(speed)
-            except AttributeError:
-                # Handle the case if getMaxSpeed is unavailable
-                # todo: Add alternative method to retrieve speed
-                self.logger.log(f"⚠️ AttributeError: getMaxSpeed not available for edge {edge}", "WARNING", 
-                                class_name="DataGenerator", function_name="get_max_speed_at_junction")
-                pass
-
-        # Return the highest speed found (if any) or 0.0 if not found
-        return max(max_speeds) if max_speeds else 0.0
-
 
     def calculate_average_speed_at_junction(self, junction_id):
         vehicles_nearby = traci.junction.getContextSubscriptionResults(junction_id)
@@ -397,6 +506,7 @@ class DataGenerator:
         speeds = [traci.vehicle.getSpeed(vehicle_id) for vehicle_id in vehicles_nearby.keys()]
         
         average_speed = sum(speeds) / len(speeds)
+        average_speed = round(average_speed, 3)
         return average_speed
 
     
@@ -436,7 +546,7 @@ class DataGenerator:
                 right_signal = bool(signals & 2)  # Whether the right turn signal is on
                 # Distance to the leading vehicle
                 leader_info = traci.vehicle.getLeader(vehicle_id)  # ID and distance of the vehicle ahead
-                leader_id = leader_info[0] if leader_info else None
+                leader_id = leader_info[0] if leader_info else "N/A"  # ID of the leading vehicle
                 leader_distance = leader_info[1] if leader_info else float('inf')
                 # Driving status
                 driving_status = "Accelerating" if acceleration > 0 else "Decelerating" if acceleration < 0 else "Cruising"
@@ -462,7 +572,7 @@ class DataGenerator:
                     'Changing Lane': changing_lane,
                     'Left Signal': left_signal,
                     'Right Signal': right_signal,
-                    'Leader ID': leader_id,
+                    'Leader ID': leader_id if leader_id else "N/A",
                     'Leader Distance': f"{leader_distance:.3f}" if leader_id else "N/A",
                     'Driving Status': driving_status,
                     'Is Near Exit': is_near_exit
@@ -475,7 +585,7 @@ class DataGenerator:
     #####################################################################
     # The following function is not used in the current implementation. It is kept for future use.
 
-    def export_network_graph(self, step_number, junction_positions):
+    def export_network_graph_deprecated(self, step_number, junction_positions):
         """ Exports the network graph as an image using matplotlib. """
         
         self.logger.log("📡 Exporting network graph...", "INFO", 
