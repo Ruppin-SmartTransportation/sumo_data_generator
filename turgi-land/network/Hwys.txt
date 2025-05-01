@@ -1,0 +1,14 @@
+edge:E3
+edge:-E3
+edge:E2
+edge:-E2
+edge:E6
+edge:-E6
+edge:-E1
+edge:E1
+edge:E4
+edge:-E4
+edge:E0
+edge:-E0
+edge:E5
+edge:-E5
