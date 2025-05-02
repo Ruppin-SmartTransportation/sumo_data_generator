@@ -155,7 +155,7 @@ class DataGenerator:
                 if "junction_data.csv" in file_path:
                     writer.writerow(['Step Number', 'Junction ID', 'Junction Type', 'X Coordinate', 'Y Coordinate', 'Number of Vehicles', 'Average Speed', 'Congestion Level', 'Traffic Light State'])
                 elif "vehicle_data.csv" in file_path:
-                    writer.writerow(['Step Number', 'Vehicle ID', 'Vehicle Type', 'X Coordinate', 'Y Coordinate', 'Length Dimention', 'Width Dimention' ,'Speed', 'Acceleration' , 'Route ID', 'Route Edges', 'Lane ID', 'Lane Position', 'Lane Index', 'Changing Lane', 'Left Signal', 'Right Signal', 'Leader ID', 'Leader Distance', 'Driving Status', 'Is Near Exit'])
+                    writer.writerow(['Step Number', 'Vehicle ID', 'Vehicle Type', 'X Coordinate', 'Y Coordinate', 'Length Dimention', 'Width Dimention' ,'Speed', 'Acceleration' , 'Route ID', 'Route Edges', 'Lane ID', 'Lane Position', 'Lane Index', 'Leader ID', 'Leader Distance', 'Driving Status', 'Is Near Exit'])
                 elif "fixed_road_edges_data.csv" in file_path:
                     writer.writerow(['Edge ID <> Lane ID', 'Source', 'Destination', 'Length', 'Speed Limit', 'Road Type'])
                 elif "dynamic_vehicle_movement_edges_data.csv" in file_path:
@@ -516,7 +516,7 @@ class DataGenerator:
         file_exists = os.path.isfile(csv_file_path)
 
         with open(csv_file_path, mode='a', newline='') as csv_file:  # Change mode to 'a'
-            fieldnames = ['Step Number', 'Vehicle ID', 'Vehicle Type', 'X Coordinate', 'Y Coordinate', 'Length Dimention', 'Width Dimention' ,'Speed', 'Acceleration', 'Route ID', 'Route Edges', 'Lane ID', 'Lane Position', 'Lane Index', 'Changing Lane', 'Left Signal', 'Right Signal', 'Leader ID', 'Leader Distance', 'Driving Status', 'Is Near Exit']
+            fieldnames = ['Step Number', 'Vehicle ID', 'Vehicle Type', 'X Coordinate', 'Y Coordinate', 'Length Dimention', 'Width Dimention' ,'Speed', 'Acceleration', 'Route ID', 'Route Edges', 'Lane ID', 'Lane Position', 'Lane Index', 'Leader ID', 'Leader Distance', 'Driving Status', 'Is Near Exit']
             writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
 
             if not file_exists:
@@ -538,12 +538,7 @@ class DataGenerator:
                 lane_position = traci.vehicle.getLanePosition(vehicle_id)  # Position within the lane
                 # Lane change status
                 lane_index = traci.vehicle.getLaneIndex(vehicle_id)  # Which lane the vehicle is in - 0, 1, 2, etc. 0 means the leftmost lane
-                intended_lane = traci.vehicle.getBestLanes(vehicle_id)  # Whether there is an intention to change lanes
-                changing_lane = len(intended_lane) > 0  # Whether the vehicle is in the process of lane change calculation
-                # Turn signal status
-                signals = traci.vehicle.getSignals(vehicle_id)  # Numeric code representing the turn signals
-                left_signal = bool(signals & 1)  # Whether the left turn signal is on
-                right_signal = bool(signals & 2)  # Whether the right turn signal is on
+               
                 # Distance to the leading vehicle
                 leader_info = traci.vehicle.getLeader(vehicle_id)  # ID and distance of the vehicle ahead
                 leader_id = leader_info[0] if leader_info else "N/A"  # ID of the leading vehicle
@@ -569,9 +564,6 @@ class DataGenerator:
                     'Lane ID': lane_id,
                     'Lane Position': f"{lane_position:.3f}",
                     'Lane Index': lane_index,
-                    'Changing Lane': changing_lane,
-                    'Left Signal': left_signal,
-                    'Right Signal': right_signal,
                     'Leader ID': leader_id if leader_id else "N/A",
                     'Leader Distance': f"{leader_distance:.3f}" if leader_id else "N/A",
                     'Driving Status': driving_status,

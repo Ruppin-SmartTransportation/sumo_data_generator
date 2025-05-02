@@ -7,7 +7,6 @@ from .traffic_controller import TrafficController
 from .vehicle_controller import VehicleController
 from .junction_controller import JunctionController
 from .data_generator import DataGenerator
-from .simulation_generator import SimulationGenerator
 
 class SimulationRunner:
     """ Main class to run the SUMO simulation with plugins and dynamic vehicle behavior. """
@@ -22,13 +21,6 @@ class SimulationRunner:
                             class_name="SimulationRunner", function_name="__init__")
             traci.close()
 
-        self.traffic_patterns = ["Morning rush hour", "Noon", "Afternoon rush hour", "Evening", "Night"]
-
-        self.simulator_generator = SimulationGenerator(self.logger)
-        self.vehicle_controller = VehicleController(self.logger)
-        self.vehicle_controller.init_vehicles_network()
-
-
         # Start SUMO-GUI with the simulation configuration
         sumo_cmd = ["sumo", "-c", "sumo_config/my_3x3_simulation.sumocfg", "--start"]
         traci.start(sumo_cmd)
@@ -37,6 +29,7 @@ class SimulationRunner:
         
         # Initialize controllers
         self.traffic_controller = TrafficController(self.logger)
+        self.vehicle_controller = VehicleController(self.logger)
         self.junction_controller = JunctionController(self.logger)
         # Any appeal to traci should be done from VehicleController 
        
@@ -46,21 +39,14 @@ class SimulationRunner:
         # Simulation parameters
         self.delay = delay
         self.num_of_steps = num_of_steps
+        self.most_veh = 0
+        self.most_veh_step = 0
         self.traffic_phase_duration = 10
 
     def run_simulation(self):
         """ Runs the simulation loop while logging all events. """
         try:
             self.junction_controller.subscribe_to_junctions() # register all junctions for vehicle tracking around them
-
-            for pattern in self.traffic_patterns:
-                self.logger.log(f"🔄 Starting simulation with traffic pattern: {pattern}", "INFO", "blue",
-                                class_name="SimulationRunner", function_name="run_simulation")
-                self.simulator_generator.generate_vehicles(pattern)
-
-
-###########################################################################################
-
 
             for step in range(self.num_of_steps):
                 traci.simulationStep()
@@ -74,8 +60,31 @@ class SimulationRunner:
                 self.logger.log(f"🔹 Step {step}: {num_vehicles} vehicles on the road", "INFO",
                                 class_name="SimulationRunner", function_name="run_simulation")
 
+                # Track the maximum vehicle count
+                if num_vehicles > self.most_veh:
+                    self.most_veh = num_vehicles
+                    self.most_veh_step = step
+
+                # # Adjust the speed of one random vehicle every 5 steps
+                # if step % 5 == 0:
+                #     self.adjust_vehicle_speeds_randomly()
+
+                # adjust the traffic light of random junction every 10 steps
+                # if step % 10 == 0:
+                #     self.traffic_controller.adjust_random_traffic_light()
+
                 # Log all vehicle information
                 self.vehicle_controller.log_vehicle_info()
+
+                # Track the fastest vehicle each step
+                # self.vehicle_controller.track_fastest_vehicle(step)
+
+            # Log the summary of the fastest vehicle
+            # fastest_vehicle, fastest_speed, fastest_step = self.vehicle_controller.get_fastest_vehicle_summary()
+            # self.logger.log(f"\n✅ Most vehicles on the road: {self.most_veh}, at step {self.most_veh_step}", "INFO", "green",
+            #                 class_name="SimulationRunner", function_name="run_simulation")
+            # self.logger.log(f"🚀 Fastest vehicle: {fastest_vehicle} with speed {fastest_speed:.2f} m/s at step {fastest_step}", "INFO", "green",
+            #                 class_name="SimulationRunner", function_name="run_simulation")
 
         except Exception as e:
             self.logger.log(f"❌ Critical simulation error: {e}", "ERROR", "red",
@@ -88,6 +97,16 @@ class SimulationRunner:
             self.logger.close()
             self.nodes_logger.close()
 
+    # def adjust_vehicle_speeds_randomly(self):
+    #     """ Randomly adjust the speed of one random active vehicle. """
+    #     vehicles = self.vehicle_controller.get_active_vehicles()
+    #     if vehicles:
+    #         selected_vehicle = random.choice(vehicles)
+    #         random_speed = random.uniform(5, 25)  # Speed between 5 and 25 m/s
+    #         self.vehicle_controller.update_vehicle_speed(selected_vehicle, random_speed)
+    #         self.logger.log(f"🔀 Randomly adjusted speed of vehicle {selected_vehicle} to {random_speed:.2f} m/s",
+    #                         "INFO", "blue", class_name="SimulationRunner", function_name="adjust_vehicle_speeds_randomly")
+    
     def get_static_nodes(self):
         """ Retrieves all static nodes (junctions) through JunctionController. """
         return self.junction_controller.get_all_junctions()

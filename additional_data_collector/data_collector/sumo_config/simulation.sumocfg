@@ -1,0 +1,9 @@
+<configuration>
+    <input>
+        <net-file value="turgi-land.net.xml"/>
+    </input>
+    <time>
+        <begin value="0"/>
+        <end value="86400"/>
+    </time>
+</configuration>
