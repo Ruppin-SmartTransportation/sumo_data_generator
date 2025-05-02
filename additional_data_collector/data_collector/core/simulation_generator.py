@@ -1,28 +1,48 @@
+import random
 import traci
 
 class SimulationGenerator:
-    """ Generates a simulation for the SUMO traffic simulation. """
-    def __init__(self, logger):
+    """ Generates vehicles dynamically for the SUMO traffic simulation. """
+
+    def __init__(self, logger, edges_path="sumo_config"):
         self.logger = logger
+        self.zone_edges = {}
+        self.load_zone_edges(edges_path)
+        self.traffic_patterns = self.define_traffic_patterns()
 
-    def generate_vehicles(self, traffic_pattern):
-        """ Generates vehicles based on the specified traffic pattern. """
-        self.logger.log(f"🚗 Generating vehicles for traffic pattern: {traffic_pattern}", "INFO", "blue",
-                        class_name="SimulationGenerator", function_name="generate_vehicles")
-        
-        if traffic_pattern == "Morning rush hour":
-            majority_travel_from = ["A", "A", "A", "C", "C", "B"]
-            majority_travel_to   = ["B", "B", "B", "A", "C"]
-        elif traffic_pattern == "Noon":
-            majority_travel_from = ["B", "B", "A", "C"]
-            majority_travel_to   = ["A", "A", "C", "C", "B"]
-        elif traffic_pattern == "Afternoon rush hour":
-            majority_travel_from = ["B", "B", "B", "A", "C"]
-            majority_travel_to   = ["C", "C", "C", "A", "B"]
-        elif traffic_pattern == "Evening":
-            majority_travel_from = ["A", "A", "C", "C", "B"]
-            majority_travel_to   = ["A", "C", "C", "B"]
-        elif traffic_pattern == "Night":
-            majority_travel_from = ["A", "B", "C"]
-            majority_travel_to   = ["A", "B", "C"]
+    def load_zone_edges(self, edges_path):
+        """ Load edge lists for each zone from text files. """
+        zones = ['A', 'B', 'C']
+        for zone in zones:
+            with open(f"{edges_path}/zone{zone}_edges.txt", 'r') as f:
+                edges = [line.strip() for line in f.readlines()]
+                self.zone_edges[zone] = edges
+        self.logger.log(f"✅ Zone edges loaded: { {k: len(v) for k,v in self.zone_edges.items()} }", "INFO")
 
+    def define_traffic_patterns(self):
+        """ Define traffic patterns for each time window. """
+        return {
+            "Morning rush hour":    {"from": ["A", "A", "A", "C", "C", "B"], "to": ["B", "B", "B", "A", "C"]},
+            "Noon":                 {"from": ["B", "B", "A", "C"],           "to": ["A", "A", "C", "C", "B"]},
+            "Afternoon rush hour":  {"from": ["B", "B", "B", "A", "C"],      "to": ["C", "C", "C", "A", "B"]},
+            "Evening":              {"from": ["A", "A", "C", "C", "B"],      "to": ["A", "C", "C", "B"]},
+            "Night":                {"from": ["A", "B", "C"],                "to": ["A", "B", "C"]}
+        }
+
+    def generate_vehicles(self, traffic_pattern, num_vehicles):
+        """ Generate vehicles dynamically according to the pattern and number requested. """
+        pattern = self.traffic_patterns[traffic_pattern]
+
+        for i in range(num_vehicles):
+            origin_zone = random.choice(pattern["from"])
+            destination_zone = random.choice(pattern["to"])
+
+            origin_edge = random.choice(self.zone_edges[origin_zone])
+            destination_edge = random.choice(self.zone_edges[destination_zone])
+
+            veh_id = f"veh_{traci.simulation.getTime()}_{i}"
+            traci.vehicle.add(vehID=veh_id, routeID="", typeID="car", depart=None)
+            traci.vehicle.moveTo(veh_id, origin_edge, 0.0)
+            traci.vehicle.setRoute(veh_id, [origin_edge, destination_edge])
+
+        self.logger.log(f"🚗 {num_vehicles} vehicles generated for {traffic_pattern}", "INFO")
