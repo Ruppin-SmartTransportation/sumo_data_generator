@@ -31,12 +31,10 @@ class SimulationGenerator:
 
     def generate_vehicles(self, traffic_pattern, num_vehicles):
         """ Generate vehicles dynamically according to the pattern and number requested. """
-        try:
-            # Log all edges in the simulation
-            # all_edges = traci.edge.getIDList()
-            # self.logger.log(f"📍 All edges in simulation: {all_edges}", "INFO")
-
+        try:            
             pattern = self.traffic_patterns[traffic_pattern]
+            actual_generated = 0
+
 
             for i in range(num_vehicles):
                 origin_zone = random.choice(pattern["from"])
@@ -53,9 +51,13 @@ class SimulationGenerator:
                 if len(route) > 1:
                     traci.vehicle.setRoute(veh_id, route)
                     traci.vehicle.moveTo(veh_id, origin_lane, 0.0)
+                    actual_generated += 1
                 else:
-                    self.logger.log(f"⚠️ No valid route between {origin_edge} and {destination_edge}", "WARNING")
+                    self.logger.log(f"⚠️ No valid route between {origin_edge} and {destination_edge}", "WARNING",
+                                    class_name="SimulationGenerator", function_name="generate_vehicles")
         except Exception as e:
-            self.logger.log(f"❌ Error generating vehicles: {str(e)}", "ERROR")
+            self.logger.log(f"❌ Error generating vehicles: {str(e)}", "ERROR", "red",
+                            class_name="SimulationGenerator", function_name="generate_vehicles")
 
-        self.logger.log(f"🚗 {num_vehicles} vehicles generated for {traffic_pattern}", "INFO")
+        self.logger.log(f"🚗 {actual_generated} vehicles generated for {traffic_pattern}", "INFO",
+                        class_name="SimulationGenerator", function_name="generate_vehicles")

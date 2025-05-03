@@ -5,8 +5,8 @@ from .logger import Logger
 # from .node_logger import NodesLogger
 # from .traffic_controller import TrafficController
 # from .vehicle_controller import VehicleController
-# from .junction_controller import JunctionController
-# from .data_generator import DataGenerator
+from .junction_controller import JunctionController
+from .data_generator import DataGenerator
 from .simulation_generator import SimulationGenerator
 
 class SimulationRunner:
@@ -17,6 +17,8 @@ class SimulationRunner:
         self.delay = delay
         self.num_of_steps = num_of_steps
         self.simulation_generator = SimulationGenerator(self.logger)
+        self.data_generator = DataGenerator(self.logger, "export_data")
+        self.junction_controller = JunctionController(self.logger)
     
         self.time_windows = {
             "Morning rush hour": (23400, 43200),
@@ -27,11 +29,11 @@ class SimulationRunner:
         }
 
         self.max_vehicles_per_window = {
-            "Morning rush hour": 400,
-            "Noon": 200,
-            "Afternoon rush hour": 400,
-            "Evening": 200,
-            "Night": 100
+            "Morning rush hour": 600,
+            "Noon": 300,
+            "Afternoon rush hour": 600,
+            "Evening": 300,
+            "Night": 250
         }
 
         self.setup_sumo()
@@ -51,6 +53,10 @@ class SimulationRunner:
     def run_simulation(self):
         """ Runs the simulation with dynamic vehicle generation. """
         try:
+            self.junction_controller.subscribe_to_junctions() # register all junctions for vehicle tracking around them
+            static_nodes = self.get_static_nodes()
+            self.filtered_static_nodes = [node for node in static_nodes if not node.startswith(":")] # filter out internal nodes
+
             for step in range(self.num_of_steps):
                 traci.simulationStep()
                 current_time = traci.simulation.getTime()
@@ -64,6 +70,9 @@ class SimulationRunner:
                     self.simulation_generator.generate_vehicles(current_window, num_to_generate)
                 
                 self.get_num_vehicles_and_max(step)
+                
+                if step % 300 == 0:
+                    self.data_generator.export_data(step, self.filtered_static_nodes)
 
         except Exception as e:
             self.logger.log(f"❌ Critical simulation error: {e}", "ERROR", "red",
@@ -77,6 +86,10 @@ class SimulationRunner:
                             class_name="SimulationRunner", function_name="run_simulation", print_to_console=True)
             self.logger.close()
 
+    def get_static_nodes(self):
+        """ Retrieves all static nodes (junctions) through JunctionController. """
+        return self.junction_controller.get_all_junctions()
+    
     def get_num_vehicles_and_max(self, step):
         """ Get the number of vehicles and max vehicles at a given step. """
         num_vehicles = traci.vehicle.getIDCount()

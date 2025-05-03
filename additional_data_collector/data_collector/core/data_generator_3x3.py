@@ -2,7 +2,6 @@ import os
 import traci
 import matplotlib.pyplot as plt
 import csv
-import re
 import numpy as np
 import networkx as nx
 import sumolib
@@ -15,11 +14,11 @@ class DataGenerator:
         self.logger = logger
         self.export_data_directory = export_data_directory
         self.reset_files()
-        self.grid_net_xml_path = r"C:\Users\Matan\project_SmartTransportationRuppin\sumo_data_generator\additional_data_collector\data_collector\sumo_config\turgi-land.net.xml"
+        self.grid_net_xml_path = r"<ADD YOUR PATH>\sumo_data_generator\additional_data_collector\data_collector\sumo_config\my_3x3_grid.net.xml"
         self.load_junction_types_from_netxml(self.grid_net_xml_path)
         self.extract_internal_lane_speeds_by_junction(self.grid_net_xml_path)
-        # self.routes_rou_xml_path = r"C:\Users\Matan\project_SmartTransportationRuppin\sumo_data_generator\additional_data_collector\data_collector\sumo_config\my_3x3_routes.rou.xml"
-        # self.load_routes_and_flows_from_rouxml(self.routes_rou_xml_path)
+        self.routes_rou_xml_path = r"<ADD YOUR PATH>\sumo_data_generator\additional_data_collector\data_collector\sumo_config\my_3x3_routes.rou.xml"
+        self.load_routes_and_flows_from_rouxml(self.routes_rou_xml_path)
         self.export_fixed_road_edges = True
     
     def extract_internal_lane_speeds_by_junction(self, net_file_path):
@@ -327,31 +326,13 @@ class DataGenerator:
             except Exception as e:
                 print(f"Error occurred while exporting dynamic vehicle movement edges data: {e}")
 
-
     def find_destination_junction(self, vehicle_id):
         """ Finds the destination junction for a given vehicle ID. """
-        try:
-            vehicle_route = traci.vehicle.getRoute(vehicle_id)
-            if not vehicle_route:
-                return None  # No route found for the vehicle
-
-            last_edge = vehicle_route[-1]
-            destination_junction = self.get_to_node_from_edge(last_edge)
+        route_id = traci.vehicle.getRouteID(vehicle_id)
+        if route_id in self.routes_configuration:
+            destination_junction = self.routes_configuration[route_id]['destination_junction']
             return destination_junction
-
-        except Exception as e:
-            self.logger.log(f"❌ Error finding destination junction for {vehicle_id}: {str(e)}", "ERROR",
-                            class_name="SimulationGenerator", function_name="find_destination_junction")
-            return None
-
-    def get_to_node_from_edge(self, edge_id):
-        """ Extracts the destination junction ID (toNode) from an edge ID. """
-        try:
-            matches = re.findall(r'[A-Z]+[0-9]*', edge_id)
-            return matches[-1] if matches else None
-        except Exception as e:
-            self.logger.log(f"❌ Error parsing toNode from edge '{edge_id}': {str(e)}", "ERROR",
-                            class_name="SimulationGenerator", function_name="get_to_node_from_edge")
+        else:
             return None
 
     def find_nearest_junction(self, vehicle_position, all_junctions_vehicles_nearby):

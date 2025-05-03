@@ -6,7 +6,7 @@ from .node_logger import NodesLogger
 from .traffic_controller import TrafficController
 from .vehicle_controller import VehicleController
 from .junction_controller import JunctionController
-from .data_generator import DataGenerator
+from .data_generator_3x3 import DataGenerator
 
 class SimulationRunner:
     """ Main class to run the SUMO simulation with plugins and dynamic vehicle behavior. """
