@@ -1,0 +1,6 @@
+Step Number,Vehicle ID,Current Edge,Current Lane,Speed,Nearest Junction (Current),Distance to Nearest Junction,Next (Nearest) Vehicle,Distance to Next Vehicle,Destination Junction
+300,veh_Night_300_0,BK1BK2,BK1BK2_0,2.414,BK1,10.746,None,None,BG6
+300,veh_Night_300_1,AK4AK5,AK4AK5_0,1.728,AK4,10.136,None,None,AE1
+300,veh_Night_300_2,AV8AV9,AV8AV9_0,2.126,AV8,9.462,None,None,BG8
+300,veh_Night_300_3,BE6BD6,BE6BD6_0,1.442,BE6,8.789,None,None,AF5
+300,veh_Night_300_4,BJ8BJ7,BJ8BJ7_0,2.030,BJ8,9.367,None,None,AT1
