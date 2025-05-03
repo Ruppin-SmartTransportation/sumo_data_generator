@@ -31,18 +31,31 @@ class SimulationGenerator:
 
     def generate_vehicles(self, traffic_pattern, num_vehicles):
         """ Generate vehicles dynamically according to the pattern and number requested. """
-        pattern = self.traffic_patterns[traffic_pattern]
+        try:
+            # Log all edges in the simulation
+            # all_edges = traci.edge.getIDList()
+            # self.logger.log(f"📍 All edges in simulation: {all_edges}", "INFO")
 
-        for i in range(num_vehicles):
-            origin_zone = random.choice(pattern["from"])
-            destination_zone = random.choice(pattern["to"])
+            pattern = self.traffic_patterns[traffic_pattern]
 
-            origin_edge = random.choice(self.zone_edges[origin_zone])
-            destination_edge = random.choice(self.zone_edges[destination_zone])
+            for i in range(num_vehicles):
+                origin_zone = random.choice(pattern["from"])
+                destination_zone = random.choice(pattern["to"])
 
-            veh_id = f"veh_{traci.simulation.getTime()}_{i}"
-            traci.vehicle.add(vehID=veh_id, routeID="", typeID="car", depart=None)
-            traci.vehicle.moveTo(veh_id, origin_edge, 0.0)
-            traci.vehicle.setRoute(veh_id, [origin_edge, destination_edge])
+                origin_edge = random.choice(self.zone_edges[origin_zone])
+                origin_lane = origin_edge + "_0"
+                destination_edge = random.choice(self.zone_edges[destination_zone])
+                route = traci.simulation.findRoute(origin_edge, destination_edge).edges
+
+                veh_id = f"veh_{traffic_pattern.replace(' ', '_')}_{traci.simulation.getTime()}_{i}"
+                traci.vehicle.add(vehID=veh_id, routeID="", depart=None)
+                traci.vehicle.setColor(veh_id, (255, 0, 0, 255))  # Set vehicle color to red (RGBA)
+                if len(route) > 1:
+                    traci.vehicle.setRoute(veh_id, route)
+                    traci.vehicle.moveTo(veh_id, origin_lane, 0.0)
+                else:
+                    self.logger.log(f"⚠️ No valid route between {origin_edge} and {destination_edge}", "WARNING")
+        except Exception as e:
+            self.logger.log(f"❌ Error generating vehicles: {str(e)}", "ERROR")
 
         self.logger.log(f"🚗 {num_vehicles} vehicles generated for {traffic_pattern}", "INFO")
