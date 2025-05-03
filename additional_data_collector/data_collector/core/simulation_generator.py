@@ -44,8 +44,7 @@ class SimulationGenerator:
                 origin_lane = origin_edge + "_0"
                 destination_edge = random.choice(self.zone_edges[destination_zone])
                 route = traci.simulation.findRoute(origin_edge, destination_edge).edges
-
-                veh_id = f"veh_{traffic_pattern.replace(' ', '_')}_{traci.simulation.getTime()}_{i}"
+                veh_id = f"veh_{traffic_pattern.replace(' ', '_')}_{int(traci.simulation.getTime())}_{i}"
                 traci.vehicle.add(vehID=veh_id, routeID="", depart=None)
                 traci.vehicle.setColor(veh_id, (255, 0, 0, 255))  # Set vehicle color to red (RGBA)
                 if len(route) > 1:

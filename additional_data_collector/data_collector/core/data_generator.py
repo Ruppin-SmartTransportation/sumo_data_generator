@@ -18,8 +18,6 @@ class DataGenerator:
         self.grid_net_xml_path = r"C:\Users\Matan\project_SmartTransportationRuppin\sumo_data_generator\additional_data_collector\data_collector\sumo_config\turgi-land.net.xml"
         self.load_junction_types_from_netxml(self.grid_net_xml_path)
         self.extract_internal_lane_speeds_by_junction(self.grid_net_xml_path)
-        # self.routes_rou_xml_path = r"C:\Users\Matan\project_SmartTransportationRuppin\sumo_data_generator\additional_data_collector\data_collector\sumo_config\my_3x3_routes.rou.xml"
-        # self.load_routes_and_flows_from_rouxml(self.routes_rou_xml_path)
         self.export_fixed_road_edges = True
     
     def extract_internal_lane_speeds_by_junction(self, net_file_path):
@@ -58,57 +56,6 @@ class DataGenerator:
 
         self.junctions_speed_limits = average_speeds
 
-    def load_routes_and_flows_from_rouxml(self, routes_rou_xml_path):
-        """
-        Parses the .rou.xml file to retrieve routes and their edges, 
-        as well as the destination junction for each route.
-        """
-        routes = {}  # Dictionary to store routes and their details
-
-        # Parse the XML file
-        tree = ET.parse(routes_rou_xml_path)
-        root = tree.getroot()
-
-        # Iterate over the routes defined in the XML
-        for route in root.findall('route'):
-            route_id = route.get('id')  # Get the route ID
-            edges = route.get('edges')  # Get the edges in the route (space-separated)
-            edges_list = edges.split()  # Split the edges into a list
-            
-            # The destination junction is the second part of the last edge
-            last_edge = edges_list[-1]  # Get the last edge in the route
-            destination_junction = last_edge[2:]  # Extract the second part of the edge (the destination junction)
-            
-            # Store the route details in the dictionary
-            routes[route_id] = {
-                'edges': edges_list,
-                'destination_junction': destination_junction
-            }
-
-        self.routes_configuration = routes
-        # print(f"Routes loaded from {routes_rou_xml_path}: {routes}")
-        
-        flows = {}
-
-        for flow in root.findall('flow'):
-            flow_id = flow.get('id')
-            route_id = flow.get('route')
-            if route_id in routes:
-                flow_destination_junction = routes[route_id]['destination_junction']
-            else:
-                flow_destination_junction = None  # Fallback if no matching route is found
-            
-            flows[flow_id] = {
-                'flow_id': flow_id,
-                'route_id': route_id,
-                'destination_junction': flow_destination_junction
-            }
-
-        self.flows_configuration = flows
-        # print(f"Flows loaded from {routes_rou_xml_path}: {flows}")
-
-        self.logger.log(f"🔹 Routes and flows loaded from {routes_rou_xml_path}: {routes}", "DEBUG"
-                        , class_name="DataGenerator", function_name="load_routes_and_flows_from_rouxml")
     
     def load_junction_types_from_netxml(self, net_xml_path):
         """
@@ -156,7 +103,7 @@ class DataGenerator:
                 if "junction_data.csv" in file_path:
                     writer.writerow(['Step Number', 'Junction ID', 'Junction Type', 'X Coordinate', 'Y Coordinate', 'Number of Vehicles', 'Average Speed', 'Congestion Level', 'Traffic Light State'])
                 elif "vehicle_data.csv" in file_path:
-                    writer.writerow(['Step Number', 'Vehicle ID', 'Vehicle Type', 'X Coordinate', 'Y Coordinate', 'Length Dimention', 'Width Dimention' ,'Speed', 'Acceleration' , 'Route ID', 'Route Edges', 'Lane ID', 'Lane Position', 'Lane Index', 'Leader ID', 'Leader Distance', 'Driving Status', 'Is Near Exit'])
+                    writer.writerow(['Step Number', 'Vehicle ID', 'X Coordinate', 'Y Coordinate', 'Length Dimention', 'Width Dimention' ,'Speed', 'Acceleration' , 'Route Edges', 'Lane ID', 'Lane Position', 'Lane Index', 'Leader ID', 'Leader Distance', 'Driving Status', 'Is Near Exit'])
                 elif "fixed_road_edges_data.csv" in file_path:
                     writer.writerow(['Edge ID <> Lane ID', 'Source', 'Destination', 'Length', 'Speed Limit', 'Road Type'])
                 elif "dynamic_vehicle_movement_edges_data.csv" in file_path:
@@ -535,7 +482,7 @@ class DataGenerator:
         file_exists = os.path.isfile(csv_file_path)
 
         with open(csv_file_path, mode='a', newline='') as csv_file:  # Change mode to 'a'
-            fieldnames = ['Step Number', 'Vehicle ID', 'Vehicle Type', 'X Coordinate', 'Y Coordinate', 'Length Dimention', 'Width Dimention' ,'Speed', 'Acceleration', 'Route ID', 'Route Edges', 'Lane ID', 'Lane Position', 'Lane Index', 'Leader ID', 'Leader Distance', 'Driving Status', 'Is Near Exit']
+            fieldnames = ['Step Number', 'Vehicle ID', 'X Coordinate', 'Y Coordinate', 'Length Dimention', 'Width Dimention' ,'Speed', 'Acceleration', 'Route Edges', 'Lane ID', 'Lane Position', 'Lane Index', 'Leader ID', 'Leader Distance', 'Driving Status', 'Is Near Exit']
             writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
 
             if not file_exists:
@@ -543,7 +490,6 @@ class DataGenerator:
 
             vehicle_ids = traci.vehicle.getIDList()
             for vehicle_id in vehicle_ids:
-                vehicle_type = traci.vehicle.getTypeID(vehicle_id)
                 position = traci.vehicle.getPosition(vehicle_id)
                 length = traci.vehicle.getLength(vehicle_id)
                 width = traci.vehicle.getWidth(vehicle_id)
@@ -571,14 +517,12 @@ class DataGenerator:
                 writer.writerow({
                     'Step Number': step_number,
                     'Vehicle ID': vehicle_id,
-                    'Vehicle Type': vehicle_type,
                     'X Coordinate': f"{position[0]:.3f}",
                     'Y Coordinate': f"{position[1]:.3f}",
                     'Length Dimention': f"{length:.3f}",
                     'Width Dimention': f"{width:.3f}",
                     'Speed': f"{speed:.3f}",
                     'Acceleration': f"{acceleration:.3f}",
-                    'Route ID': route_id,
                     'Route Edges': route_edges,
                     'Lane ID': lane_id,
                     'Lane Position': f"{lane_position:.3f}",
