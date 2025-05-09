@@ -1,0 +1,16 @@
+edge:BE9BD9
+edge:BD9BE9
+edge:BE8BE9
+edge:BE9BE8
+edge:BE8BE7
+edge:BE7BE8
+edge:BD7BE7
+edge:BE7BD7
+edge:BC7BD7
+edge:BD7BC7
+edge:BC8BC7
+edge:BC7BC8
+edge:BC9BC8
+edge:BC8BC9
+edge:BD9BC9
+edge:BC9BD9

@@ -7,6 +7,8 @@
 
     <input>
         <net-file value="turgi-land.net.xml"/>
+        <additional-files value="vehicle_types.add.xml"/>
+
     </input>
 
 </sumoConfiguration>

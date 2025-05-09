@@ -1,0 +1,16 @@
+edge:BH2BH1
+edge:BH1BH2
+edge:BI1BH1
+edge:BH1BI1
+edge:BJ1BI1
+edge:BI1BJ1
+edge:BJ1BJ2
+edge:BJ2BJ1
+edge:BJ3BJ2
+edge:BJ2BJ3
+edge:BI3BJ3
+edge:BJ3BI3
+edge:BH3BH2
+edge:BH2BH3
+edge:BH3BI3
+edge:BI3BH3

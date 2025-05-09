@@ -143,6 +143,20 @@ class Vehicle:
         self.color = color
         self.status = status  # e.g., "moving", "parked"
         self.is_stagnant = is_stagnant  # True if vehicle is not tracked by the model
+        
+        self.destinations = {
+            "home": {"edge": self.origin_edge, "position": self.origin_position},
+            "work": None,
+            "friend1": None,
+            "friend2": None,
+            "friend3": None,
+            "park1": None,
+            "park2": None,
+            "park3": None,
+            "park4": None,
+            "stadium1": None,
+            "stadium2": None
+        }
 
     def update_state(self, current_edge, current_position, speed, acceleration, current_x=None, current_y=None, current_zone=None):
         self.current_edge = current_edge
@@ -340,9 +354,8 @@ class SimManager:
     Manages the simulation process using IDs only,
     delegating storage and state to the DataBase.
     """
-    def __init__(self, net, zone_file_map):
+    def __init__(self, net):
         self.net = net
-        self.zone_file_map = zone_file_map  # {"A": "zoneA.txt", ...}
         self.db = DataBase()
 
     def load_zones(self):
@@ -551,3 +564,5 @@ class SimManager:
 
     def print_vehicle_statistics(self):
         self.db.print_zone_statistics()
+
+    
