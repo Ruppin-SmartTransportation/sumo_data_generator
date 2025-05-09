@@ -133,8 +133,6 @@ class Vehicle:
         self.current_x = current_x
         self.current_y = current_y
 
-        self.origin_edge = current_edge
-        self.origin_position = current_position
         self.origin_location = (current_x, current_y) if current_x is not None and current_y is not None else None
 
         self.origin_zone = current_zone
@@ -145,7 +143,7 @@ class Vehicle:
         self.is_stagnant = is_stagnant  # True if vehicle is not tracked by the model
         
         self.destinations = {
-            "home": {"edge": self.origin_edge, "position": self.origin_position},
+            "home": {"edge": self.current_edge, "position": self.current_position},
             "work": None,
             "friend1": None,
             "friend2": None,
@@ -517,6 +515,8 @@ class SimManager:
                 spacing = length / (vehicles_on_road + 1)
 
                 for j in range(vehicles_on_road):
+                    if len(self.db.vehicles) >= total_vehicles:
+                        break
                     try:
                         vtype, vcfg = next(vehicle_iter)
                     except StopIteration:
@@ -546,6 +546,8 @@ class SimManager:
                     zone.add_original_vehicle(vehicle.id)
                     zone.add_current_vehicle(vehicle.id)
 
+                    self.assign_destinations(vehicle, self.db.zones, config["landmarks"])
+
                     vehicle_id_counter += 1
 
                     # print(f"Added {vtype} vehicle {vehicle.id} in zone {zone_id} on road {road_id} at position {pos:.2f}")
@@ -558,11 +560,62 @@ class SimManager:
                 for vid in to_convert:
                     v = self.db.get_vehicle(vid)
                     v.is_stagnant = True
-                    v.color = "purple"
+                    v.color = "white"
                     # print(f"Converted vehicle {vid} to stagnant in zone {zone_id}")
 
 
     def print_vehicle_statistics(self):
         self.db.print_zone_statistics()
+
+    def assign_destinations(self, vehicle, zone_map, landmark_map):
+
+        # HOME
+        vehicle.destinations["home"] = {
+            "edge": vehicle.current_edge,
+            "position": vehicle.current_position
+        }
+
+        # WORK (random edge in Zone B)
+        zone_b_edges = list(zone_map["B"].edges)
+        work_edge = random.choice(zone_b_edges)
+        vehicle.destinations["work"] = {
+            "edge": work_edge,
+            "position": random.uniform(1.0, self.db.get_road(work_edge).length - 1.0)
+        }
+
+        # FRIEND 1: same zone
+        same_zone_edges = list(zone_map[vehicle.current_zone].edges)
+        friend1_edge = random.choice(same_zone_edges)
+        vehicle.destinations["friend1"] = {
+            "edge": friend1_edge,
+            "position": random.uniform(1.0, self.db.get_road(friend1_edge).length - 1.0)
+        }
+
+        # FRIEND 2 & 3: in other zones
+        other_zones = [z for z in zone_map if z != vehicle.current_zone and z != "H"]
+        for i in range(2, 4):
+            other_zone_id = other_zones[i - 2]
+            other_edge = random.choice(list(zone_map[other_zone_id].edges))
+            vehicle.destinations[f"friend{i}"] = {
+                "edge": other_edge,
+                "position": random.uniform(1.0, self.db.get_road(other_edge).length - 1.0)
+            }
+
+        # PARKS 1–4 (Zone A)
+        for i in range(1, 5):
+            park_edge = random.choice(landmark_map[f"park{i}"])
+            vehicle.destinations[f"park{i}"] = {
+                "edge": park_edge,
+                "position": random.uniform(1.0, self.db.get_road(park_edge).length - 1.0)
+            }
+
+        # STADIUMS 1–2 (Zone C)
+        for i in range(1, 3):
+            stadium_edge = random.choice(landmark_map[f"stadium{i}"])
+            vehicle.destinations[f"stadium{i}"] = {
+                "edge": stadium_edge,
+                "position": random.uniform(1.0, self.db.get_road(stadium_edge).length - 1.0)
+            }
+
 
     

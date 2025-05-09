@@ -1,6 +1,6 @@
 {
     "vehicle_generation": {
-        "total_num_vehicles": 10000,
+        "total_num_vehicles": 5000,
         "zone_allocation": {
             "A": {
                 "percentage": 40,
