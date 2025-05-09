@@ -40,6 +40,8 @@ if __name__ == "__main__":
 
     zone_a = sim.db.get_zone("A")
     depart_time = 0
+    depart_offset = 1000
+
     for vid in zone_a.current_vehicles:
         vehicle = sim.db.get_vehicle(vid)
 
@@ -55,7 +57,7 @@ if __name__ == "__main__":
                 vehID=vehicle.id,
                 routeID=route_id,
                 typeID=vehicle.vehicle_type,
-                depart=depart_time,
+                depart=0 if depart_time <= depart_offset else (depart_time-depart_offset)//3,
                 departPos=vehicle.current_position,
                 departSpeed=0,
                 departLane="0"
@@ -92,7 +94,7 @@ if __name__ == "__main__":
                 vehID=vehicle.id,
                 routeID=route_id,
                 typeID=vehicle.vehicle_type,
-                depart=depart_time,
+                depart=0 if depart_time <= depart_offset else (depart_time-depart_offset)//3,
                 departPos=vehicle.current_position,
                 departSpeed=0,
                 departLane="0"
