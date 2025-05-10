@@ -42,18 +42,10 @@ if __name__ == "__main__":
     traci.start(sumo_cmd)
 
     # Step the simulation forward
+    step = 0
     for step in range(100000000000):
         traci.simulationStep()
-        for vid, data in traci.vehicle.getAllSubscriptionResults().items():
-            current_edge = data[tc.VAR_ROAD_ID]
-            vehicle = sim.db.get_vehicle(vid)
-
-            if current_edge == vehicle.destinations["work"]["edge"]:
-                vehicle.status = "parked"
-                print(f"[ARRIVED] {vehicle.id} reached work.")
-
-                # Optional: unsubscribe once done
-                traci.vehicle.unsubscribe(vid)
+        sim.dispatch(step, traci)
     # input("Press Enter to close simulation...")
     traci.close()
 
