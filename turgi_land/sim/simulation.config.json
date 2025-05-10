@@ -229,5 +229,14 @@
             "BI3BH3"
        ]
     },
-    "weekday_hourly": {}
+    "weekday_schedule": {
+        "00:00": {
+            "description": "Night visits to a friend",
+            "percent_per_zone": 10,
+            "destinations": ["friend2", "friend3"],
+            "return_after_minutes": 120,
+            "dispatch_between_minutes": [0, 150]
+        }
+    }
+
 }

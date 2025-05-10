@@ -1,5 +1,6 @@
 import re
 import random
+import traci.constants as tc
 
 class Junction:
     """
@@ -355,6 +356,7 @@ class SimManager:
     def __init__(self, net):
         self.net = net
         self.db = DataBase()
+        self.schedule = {}  # step -> list of (vehicle_id, destination)
 
     def load_zones(self):
         zone_objects = {}
@@ -403,7 +405,6 @@ class SimManager:
 
         for zone in zone_objects.values():
             self.db.add_zone(zone)
-
 
     def extract_edges_from_file(self, filepath):
         edge_ids = set()
@@ -563,7 +564,6 @@ class SimManager:
                     v.color = "white"
                     # print(f"Converted vehicle {vid} to stagnant in zone {zone_id}")
 
-
     def print_vehicle_statistics(self):
         self.db.print_zone_statistics()
 
@@ -617,5 +617,89 @@ class SimManager:
                 "position": random.uniform(1.0, self.db.get_road(stadium_edge).length - 1.0)
             }
 
+    def add_to_schedule(self, step, trips):
+        """
+        Adds a list of (vehicle_id, destination_label) to be dispatched at a specific simulation step.
+        """
+        if step not in self.schedule:
+            self.schedule[step] = []
+        self.schedule[step].extend(trips)
 
-    
+    def dispatch(self, current_step, traci):
+        """
+        Dispatches all vehicles scheduled for the given simulation step.
+        """
+        if current_step not in self.schedule:
+            return
+
+        for vehicle_id, destination_label in self.schedule[current_step]:
+            vehicle = self.db.get_vehicle(vehicle_id)
+            if vehicle.status != "parked":
+                continue  # Only dispatch parked vehicles
+
+            destination = vehicle.destinations[destination_label]
+            route_id = f"route_{vehicle_id}_to_{destination_label}"
+
+            try:
+                traci.route.add(routeID=route_id, edges=[vehicle.current_edge, destination["edge"]])
+
+                traci.vehicle.add(
+                                vehID=vehicle.id,
+                                routeID=route_id,
+                                typeID=vehicle.vehicle_type,
+                                depart=0 ,
+                                departPos=vehicle.current_position,
+                                departSpeed=0,
+                                departLane="0"
+                            )
+                if vehicle.is_stagnant:
+                    traci.vehicle.setColor(vehicle.id, (255, 255, 255))  # White for stagnant vehicles
+
+                vehicle.status = "in_route"
+                vehicle.current_trip = destination_label
+
+                traci.vehicle.subscribe(vehicle.id, [tc.VAR_ROAD_ID])
+                print(f"[DISPATCHED] {vehicle.id} to {destination_label} at step {current_step}")
+            except traci.TraCIException as e:
+                print(f"[ERROR] Failed to dispatch {vehicle.id}: {e}")
+
+        del self.schedule[current_step]
+
+    def schedule_from_config(self, config, start_step=0):
+
+        weekday_schedule = config.get("weekday_schedule", {})
+        seconds_per_minute = 60
+
+        for time_str, entry in weekday_schedule.items():
+            hour, minute = map(int, time_str.split(":"))
+            base_step = start_step + (hour * 3600 + minute * 60)
+
+            percent = entry["percent_per_zone"]
+            dest_labels = entry["destinations"]
+            dispatch_range = entry.get("dispatch_between_minutes", [0, 0])
+            return_after_min = entry.get("return_after_minutes")
+
+            for zone_id, zone in self.db.zones.items():
+                if zone_id == "H":
+                    continue
+
+                eligible = [
+                    v for v in zone.current_vehicles
+                    if not self.db.get_vehicle(v).is_stagnant and self.db.get_vehicle(v).status == "parked"
+                ]
+                num_to_dispatch = int((percent / 100) * len(eligible))
+                selected = random.sample(eligible, min(num_to_dispatch, len(eligible)))
+
+                for vid in selected:
+                    vehicle = self.db.get_vehicle(vid)
+                    dest_label = random.choice(dest_labels)
+
+                    # Dispatch time in seconds from start
+                    dispatch_min = random.uniform(*dispatch_range)
+                    dispatch_step = base_step + int(dispatch_min * seconds_per_minute)
+                    self.add_to_schedule(dispatch_step, [(vid, dest_label)])
+
+                    # Schedule return trip if needed
+                    if return_after_min:
+                        return_step = dispatch_step + int(return_after_min * seconds_per_minute)
+                        self.add_to_schedule(return_step, [(vid, "home")])
