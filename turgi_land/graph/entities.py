@@ -142,6 +142,7 @@ class Vehicle:
         self.color = color
         self.status = status  # e.g., "moving", "parked"
         self.is_stagnant = is_stagnant  # True if vehicle is not tracked by the model
+        self.scheduled = False  # True if vehicle is scheduled for dispatch
         
         self.destinations = {
             "home": {"edge": self.current_edge, "position": self.current_position},
@@ -154,8 +155,13 @@ class Vehicle:
             "park3": None,
             "park4": None,
             "stadium1": None,
-            "stadium2": None
+            "stadium2": None,
+            "restaurantA": None,
+            "restaurantB": None,
+            "restaurantC": None
         }
+        self.current_destination_name = "home"
+        self.current_destination_edge = self.current_edge
 
     def update_state(self, current_edge, current_position, speed, acceleration, current_x=None, current_y=None, current_zone=None):
         self.current_edge = current_edge
@@ -186,7 +192,10 @@ class Vehicle:
             "origin_location": self.origin_location,
             "origin_edge": self.origin_edge,
             "origin_position": self.origin_position,
-            "current_zone": self.current_zone
+            "current_zone": self.current_zone,
+            "status": self.status,
+            "current_destination_name": self.current_destination_name,
+            "current_destination_edge": self.current_destination_edge
         }
 
 
@@ -357,6 +366,7 @@ class SimManager:
         self.net = net
         self.db = DataBase()
         self.schedule = {}  # step -> list of (vehicle_id, destination)
+        self.vehicles_in_route = []  # List of vehicles currently in route
 
     def load_zones(self):
         zone_objects = {}
@@ -576,26 +586,29 @@ class SimManager:
         }
 
         # WORK (random edge in Zone B)
-        zone_b_edges = list(zone_map["B"].edges)
+        zone_b_edges = [eid for eid in zone_map["B"].edges if self.db.get_road(eid).num_lanes == 1]
         work_edge = random.choice(zone_b_edges)
         vehicle.destinations["work"] = {
             "edge": work_edge,
             "position": random.uniform(1.0, self.db.get_road(work_edge).length - 1.0)
         }
 
-        # FRIEND 1: same zone
-        same_zone_edges = list(zone_map[vehicle.current_zone].edges)
+        # FRIEND 1: same zone, single-lane
+        same_zone_edges = [eid for eid in zone_map[vehicle.current_zone].edges if self.db.get_road(eid).num_lanes == 1]
         friend1_edge = random.choice(same_zone_edges)
         vehicle.destinations["friend1"] = {
             "edge": friend1_edge,
             "position": random.uniform(1.0, self.db.get_road(friend1_edge).length - 1.0)
         }
 
-        # FRIEND 2 & 3: in other zones
+        # FRIEND 2 & 3: in other zones, single-lane only
         other_zones = [z for z in zone_map if z != vehicle.current_zone and z != "H"]
         for i in range(2, 4):
             other_zone_id = other_zones[i - 2]
-            other_edge = random.choice(list(zone_map[other_zone_id].edges))
+            eligible_edges = [eid for eid in zone_map[other_zone_id].edges if self.db.get_road(eid).num_lanes == 1]
+            if not eligible_edges:
+                continue
+            other_edge = random.choice(eligible_edges)
             vehicle.destinations[f"friend{i}"] = {
                 "edge": other_edge,
                 "position": random.uniform(1.0, self.db.get_road(other_edge).length - 1.0)
@@ -616,6 +629,17 @@ class SimManager:
                 "edge": stadium_edge,
                 "position": random.uniform(1.0, self.db.get_road(stadium_edge).length - 1.0)
             }
+
+        # RESTAURANTS by zone
+        rest_map = {"A": "restaurantA", "B": "restaurantB", "C": "restaurantC"}
+        for zone_id, label in rest_map.items():
+            eligible = [eid for eid in zone_map[zone_id].edges if self.db.get_road(eid).num_lanes == 1]
+            if eligible:
+                edge = random.choice(eligible)
+                vehicle.destinations[label] = {
+                    "edge": edge,
+                    "position": random.uniform(1.0, self.db.get_road(edge).length - 1.0)
+                }
 
     def add_to_schedule(self, step, trips):
         """
@@ -638,6 +662,8 @@ class SimManager:
                 continue  # Only dispatch parked vehicles
 
             destination = vehicle.destinations[destination_label]
+            vehicle.current_destination_name = destination_label
+            vehicle.current_destination_edge = destination["edge"]
             route_id = f"route_{vehicle_id}_to_{destination_label}"
 
             try:
@@ -647,18 +673,18 @@ class SimManager:
                                 vehID=vehicle.id,
                                 routeID=route_id,
                                 typeID=vehicle.vehicle_type,
-                                depart=0 ,
+                                depart=current_step+1,
                                 departPos=vehicle.current_position,
                                 departSpeed=0,
                                 departLane="0"
                             )
                 if vehicle.is_stagnant:
                     traci.vehicle.setColor(vehicle.id, (255, 255, 255))  # White for stagnant vehicles
-
+                
                 vehicle.status = "in_route"
                 vehicle.current_trip = destination_label
-
                 traci.vehicle.subscribe(vehicle.id, [tc.VAR_ROAD_ID])
+                self.vehicles_in_route.append(vehicle.id)
                 print(f"[DISPATCHED] {vehicle.id} to {destination_label} at step {current_step}")
             except traci.TraCIException as e:
                 print(f"[ERROR] Failed to dispatch {vehicle.id}: {e}")
@@ -679,15 +705,20 @@ class SimManager:
             dispatch_range = entry.get("dispatch_between_minutes", [0, 0])
             return_after_min = entry.get("return_after_minutes")
 
-            for zone_id, zone in self.db.zones.items():
-                if zone_id == "H":
+            source_zones = entry["source_zones"]
+            percent_per_zone = entry["percent_per_zone"]
+
+            for zone_id, pct in zip(source_zones, percent_per_zone):
+                zone = self.db.get_zone(zone_id)
+                if not zone:
                     continue
 
                 eligible = [
                     v for v in zone.current_vehicles
-                    if not self.db.get_vehicle(v).is_stagnant and self.db.get_vehicle(v).status == "parked"
+                    if self.db.get_vehicle(v).status == "parked"
                 ]
-                num_to_dispatch = int((percent / 100) * len(eligible))
+                num_to_dispatch = round((pct / 100) * len(eligible))
+
                 selected = random.sample(eligible, min(num_to_dispatch, len(eligible)))
 
                 for vid in selected:
@@ -703,3 +734,9 @@ class SimManager:
                     if return_after_min:
                         return_step = dispatch_step + int(return_after_min * seconds_per_minute)
                         self.add_to_schedule(return_step, [(vid, "home")])
+
+    def get_vehicles_in_route(self):
+        """
+        Returns a list of vehicles that are currently in route.
+        """
+        return self.vehicles_in_route

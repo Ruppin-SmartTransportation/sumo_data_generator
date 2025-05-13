@@ -232,10 +232,43 @@
     "weekday_schedule": {
         "00:00": {
             "description": "Night visits to a friend",
-            "percent_per_zone": 10,
+            "source_zones": ["A","B","C"],
+            "percent_per_zone": [10, 10, 10],
             "destinations": ["friend2", "friend3"],
             "return_after_minutes": 120,
-            "dispatch_between_minutes": [0, 150]
+            "dispatch_between_minutes": [0, 120]
+        },
+        "04:00": {
+            "description": "Morning deliveries",
+            "source_zones": ["A","B","C"],
+            "percent_per_zone": [10, 30, 10],
+            "destinations": ["friend1", "friend2", "friend3"],
+            "return_after_minutes": 45,
+            "dispatch_between_minutes": [0, 45]
+        },
+        "05:30": {
+            "description": "Morning first commute to work",
+            "source_zones": ["A","B","C"],
+            "percent_per_zone": [20, 20, 20],
+            "destinations": ["work", "friend2", "friend3"],
+            "return_after_minutes": 540,
+            "dispatch_between_minutes": [0, 180]
+        },
+        "08:30": {
+            "description": "Morning second commute to work",
+            "source_zones": ["A","B","C"],
+            "percent_per_zone": [30, 10, 30],
+            "destinations": ["work", "friend2", "friend3"],
+            "return_after_minutes": 540,
+            "dispatch_between_minutes": [0, 180]
+        },
+        "11:30": {
+            "description": "Lunch break",
+            "source_zones": ["A","B","C"],
+            "percent_per_zone": [10, 10, 10],
+            "destinations": ["work", "friend2", "friend3"],
+            "return_after_minutes": 90,
+            "dispatch_between_minutes": [0, 90]
         }
     }
 

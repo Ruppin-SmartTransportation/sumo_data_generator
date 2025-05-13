@@ -43,9 +43,24 @@ if __name__ == "__main__":
 
     # Step the simulation forward
     step = 0
-    for step in range(100000000000):
+    while True:
         traci.simulationStep()
         sim.dispatch(step, traci)
+        
+        for vid in sim.get_vehicles_in_route():
+            vehicle = sim.db.vehicles[vid]
+            if vehicle.status == "in_route":
+                current_edge = traci.vehicle.getRoadID(vid)
+                vehicle.current_edge = current_edge
+                vehicle.current_position = traci.vehicle.getLanePosition(vid)
+                vehicle.current_speed = traci.vehicle.getSpeed(vid)
+                vehicle.current_lane = traci.vehicle.getLaneID(vid)
+                if current_edge == vehicle.current_destination_edge:
+                    vehicle.status = "parked"
+                    vehicle.current_edge = vehicle.destinations[vehicle.current_destination_name]["edge"]
+                    vehicle.current_position = vehicle.destinations[vehicle.current_destination_name]["position"]
+                    print(f"Vehicle {vehicle.id} arrived at destination {vehicle.current_destination_name}.")
+        step += 1
     # input("Press Enter to close simulation...")
     traci.close()
 
