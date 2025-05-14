@@ -656,11 +656,13 @@ class SimManager:
         if current_step not in self.schedule:
             return
 
-        for vehicle_id, destination_label in self.schedule[current_step]:
+        for vehicle_id, origin_label, destination_label in self.schedule[current_step]:
             vehicle = self.db.get_vehicle(vehicle_id)
             if vehicle.status != "parked":
                 continue  # Only dispatch parked vehicles
-
+            origin = vehicle.destinations[origin_label]
+            vehicle.current_edge = origin["edge"]
+            vehicle.current_position = origin["position"]
             destination = vehicle.destinations[destination_label]
             vehicle.current_destination_name = destination_label
             vehicle.current_destination_edge = destination["edge"]
@@ -691,52 +693,57 @@ class SimManager:
 
         del self.schedule[current_step]
 
-    def schedule_from_config(self, config, start_step=0):
+    def schedule_from_config(self, config):
+        schedule_entries = config.get("weekday_schedule", [])
+        seconds_in_day = 86400
 
-        weekday_schedule = config.get("weekday_schedule", {})
-        seconds_per_minute = 60
+        for entry in schedule_entries:
+            start_sec = self.convert_time_to_seconds(entry["start_time"])
+            end_sec = self.convert_time_to_seconds(entry["end_time"])
+            vpm_rate = entry.get("vpm_rate", 0)
+            source_zones = entry.get("source_zones", [])
+            origin_keys = entry.get("origin", [])
+            destination_keys = entry.get("destination", [])
+            repeat_days = entry.get("repeat_on_days", [1, 2, 3, 4, 5])
 
-        for time_str, entry in weekday_schedule.items():
-            hour, minute = map(int, time_str.split(":"))
-            base_step = start_step + (hour * 3600 + minute * 60)
+            # Compute interval between dispatches
+            interval = 60 // max(vpm_rate, 1)
+            local_steps = list(range(start_sec, end_sec + 1, int(interval)))
 
-            percent = entry["percent_per_zone"]
-            dest_labels = entry["destinations"]
-            dispatch_range = entry.get("dispatch_between_minutes", [0, 0])
-            return_after_min = entry.get("return_after_minutes")
+            for day in repeat_days:
+                base_step = (day - 1) * seconds_in_day
+                steps = [base_step + s for s in local_steps]
 
-            source_zones = entry["source_zones"]
-            percent_per_zone = entry["percent_per_zone"]
+                for zone_id in source_zones:
+                    zone = self.db.get_zone(zone_id)
+                    eligible = [
+                        v for v in zone.current_vehicles
+                        if not self.db.get_vehicle(v).scheduled
+                    ]
 
-            for zone_id, pct in zip(source_zones, percent_per_zone):
-                zone = self.db.get_zone(zone_id)
-                if not zone:
-                    continue
+                    steps_to_use = steps[:len(eligible)]
 
-                eligible = [
-                    v for v in zone.current_vehicles
-                    if self.db.get_vehicle(v).status == "parked"
-                ]
-                num_to_dispatch = round((pct / 100) * len(eligible))
+                    for step, veh_id in zip(steps_to_use, eligible):
+                        vehicle = self.db.get_vehicle(veh_id)
+                        vehicle.scheduled = True
 
-                selected = random.sample(eligible, min(num_to_dispatch, len(eligible)))
+                        origin = random.choice(origin_keys)
+                        dest = random.choice(destination_keys)
+                        self.add_to_schedule(step, [(veh_id, origin, dest)])
 
-                for vid in selected:
-                    vehicle = self.db.get_vehicle(vid)
-                    dest_label = random.choice(dest_labels)
+                        print(f"[Scheduled] {veh_id} → {dest} from zone {zone_id} origin {origin} at step {step} (day {day})")
 
-                    # Dispatch time in seconds from start
-                    dispatch_min = random.uniform(*dispatch_range)
-                    dispatch_step = base_step + int(dispatch_min * seconds_per_minute)
-                    self.add_to_schedule(dispatch_step, [(vid, dest_label)])
 
-                    # Schedule return trip if needed
-                    if return_after_min:
-                        return_step = dispatch_step + int(return_after_min * seconds_per_minute)
-                        self.add_to_schedule(return_step, [(vid, "home")])
 
     def get_vehicles_in_route(self):
         """
         Returns a list of vehicles that are currently in route.
         """
         return self.vehicles_in_route
+    
+    def convert_time_to_seconds(self, time_str):
+        """
+        Converts a time string formatted as HH:MM into the number of seconds since midnight.
+        """
+        hour, minute = map(int, time_str.split(":"))
+        return hour * 3600 + minute * 60
