@@ -60,13 +60,20 @@ if __name__ == "__main__":
                 vehicle.current_speed = traci.vehicle.getSpeed(vid)
                 vehicle.current_lane = traci.vehicle.getLaneID(vid)
                 vehicle.current_x, vehicle.current_y = traci.vehicle.getPosition(vid)
+                if vehicle.route and vehicle.current_edge in vehicle.route:
+                    idx = vehicle.route.index(vehicle.current_edge)
+                    vehicle.route_left = vehicle.route[idx:]
 
                 if current_edge == vehicle.current_destination_edge:
                     vehicle.status = "parked"
                     vehicle.current_edge = vehicle.destinations[vehicle.current_destination_name]["edge"]
                     vehicle.current_position = vehicle.destinations[vehicle.current_destination_name]["position"]
-                    print(f"Vehicle {vehicle.id} arrived at destination {vehicle.current_destination_name} at {sim.convert_seconds_to_time(step)}.")
+                    sim.vehicles_in_route.remove(vid)
+                    # print(f"Vehicle {vehicle.id} arrived at destination {vehicle.current_destination_name} at {sim.convert_seconds_to_time(step)}.")
         step += 1
+        if step % 100 == 0:
+            print(f"{sim.convert_seconds_to_time(step)} vehicles in route: {len(sim.vehicles_in_route)}")
+              
     # input("Press Enter to close simulation...")
     traci.close()
 

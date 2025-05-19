@@ -110,6 +110,7 @@ class Vehicle:
         speed=0.0,
         acceleration=0.0,
         route=None,
+        route_left=None,
         length=4.5,
         width=1.8,
         height=1.5,
@@ -128,6 +129,7 @@ class Vehicle:
         self.speed = speed
         self.acceleration = acceleration
         self.route = route if route else []
+        self.route_left = route_left if route_left else []
         self.node_type = 1  # 0 for junction, 1 for vehicle
 
         self.length = length
@@ -187,6 +189,7 @@ class Vehicle:
             "speed": self.speed,
             "acceleration": self.acceleration,
             "route": self.route,
+            "route_left": self.route_left,
             "length": self.length,
             "width": self.width,
             "height": self.height,
@@ -680,8 +683,12 @@ class SimManager:
             route_id = f"route_{vehicle_id}_to_{destination_label}_{curr_week}"
 
             try:
-                traci.route.add(routeID=route_id, edges=[vehicle.current_edge, destination["edge"]])
-
+                route_result = traci.simulation.findRoute(vehicle.current_edge, destination["edge"])
+                full_route_edges = route_result.edges
+                # print(f"Route from {vehicle.current_edge} to {destination['edge']}: {full_route_edges}")
+                traci.route.add(routeID=route_id, edges=full_route_edges)
+                vehicle.route = full_route_edges
+                vehicle.route_left = full_route_edges.copy()
                 traci.vehicle.add(
                                 vehID=vehicle.id,
                                 routeID=route_id,
@@ -689,8 +696,9 @@ class SimManager:
                                 depart=current_step+1,
                                 departPos=vehicle.current_position,
                                 departSpeed=0,
-                                departLane="0"
+                                departLane="0",
                             )
+                print(traci.vehicle.getRoute(vehicle.id))
                 if vehicle.is_stagnant:
                     traci.vehicle.setColor(vehicle.id, (255, 255, 255))  # White for stagnant vehicles
                 
