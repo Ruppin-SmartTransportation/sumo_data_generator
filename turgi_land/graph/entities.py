@@ -1,6 +1,7 @@
 import re
 import random
 import traci.constants as tc
+from collections import defaultdict
 
 class Junction:
     """
@@ -13,6 +14,7 @@ class Junction:
         self.y = y
         self.type = junc_type
         self.zone = zone
+        self.node_type = 0  # 0 for junction, 1 for vehicle
 
         self.incoming_roads = set()  # Set of incoming road IDs
         self.outgoing_roads = set()  # Set of outgoing road IDs
@@ -26,6 +28,7 @@ class Junction:
     def to_dict(self):
         return {
             "id": self.id,
+            "node_type": self.node_type,
             "x": self.x,
             "y": self.y,
             "type": self.type,
@@ -125,6 +128,7 @@ class Vehicle:
         self.speed = speed
         self.acceleration = acceleration
         self.route = route if route else []
+        self.node_type = 1  # 0 for junction, 1 for vehicle
 
         self.length = length
         self.width = width
@@ -142,7 +146,7 @@ class Vehicle:
         self.color = color
         self.status = status  # e.g., "moving", "parked"
         self.is_stagnant = is_stagnant  # True if vehicle is not tracked by the model
-        self.scheduled = False  # True if vehicle is scheduled for dispatch
+        self.scheduled = [False, False, False, False]  # True if vehicle is already scheduled for dispatch for the current week
         
         self.destinations = {
             "home": {"edge": self.current_edge, "position": self.current_position},
@@ -177,6 +181,7 @@ class Vehicle:
     def to_dict(self):
         return {
             "id": self.id,
+            "node_type": self.node_type,
             "edge": self.current_edge,
             "position": self.current_position,
             "speed": self.speed,
@@ -371,7 +376,26 @@ class SimManager:
     def load_zones(self):
         zone_objects = {}
 
-        # Collect edges by zone attribute
+        # 1. Collect junctions by zone attribute (first!)
+        for junction in self.net.getNodes():
+            zone_attr = junction.getParam("zone")
+            if not zone_attr:
+                continue
+            zone_id = zone_attr.upper()
+            if zone_id not in zone_objects:
+                zone_objects[zone_id] = Zone(zone_id)
+
+            junc = Junction(
+                junction_id=junction.getID(),
+                x=junction.getCoord()[0],
+                y=junction.getCoord()[1],
+                junc_type=junction.getType(),
+                zone=zone_id
+            )
+            self.db.add_junction(junc)
+            zone_objects[zone_id].add_junction(junc.id)
+
+        # 2. Collect edges by zone attribute and update junction connections
         for edge in self.net.getEdges():
             zone_attr = edge.getParam("zone")
             if not zone_attr:
@@ -392,55 +416,35 @@ class SimManager:
             )
             self.db.add_road(road)
             zone_objects[zone_id].add_edge(road.id)
-            # print(f"Road {road.id} added to zone {zone_id}.")
 
-        # Collect junctions by zone attribute
-        for junction in self.net.getNodes():
-            zone_attr = junction.getParam("zone")
-            if not zone_attr:
-                continue
-            zone_id = zone_attr.upper()
-            if zone_id not in zone_objects:
-                zone_objects[zone_id] = Zone(zone_id)
-
-            junc = Junction(
-                junction_id=junction.getID(),
-                x=junction.getCoord()[0],
-                y=junction.getCoord()[1],
-                junc_type=junction.getType(),
-                zone=zone_id
-            )
-            self.db.add_junction(junc)
-            zone_objects[zone_id].add_junction(junc.id)
+            # Update junction connections ---
+            from_junction = self.db.get_junction(road.from_junction)
+            to_junction = self.db.get_junction(road.to_junction)
+            if from_junction:
+                from_junction.add_outgoing(road.id)
+            if to_junction:
+                to_junction.add_incoming(road.id)
 
         for zone in zone_objects.values():
             self.db.add_zone(zone)
 
-    def extract_edges_from_file(self, filepath):
-        edge_ids = set()
-        with open(filepath, 'r') as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
 
-                if line.startswith("junction:"):
-                    continue  # Skip junction declarations
-
-                match = re.search(r'from([^\s]+)to([^\s]+)', line)
-                if match:
-                    edge_ids.add(match.group(1).split('_')[0])
-                    edge_ids.add(match.group(2).split('_')[0])
-                elif line.startswith("edge:"):
-                    edge_ids.add(line.split("edge:")[1].strip().split('_')[0])
-                else:
-                    edge_ids.add(line.split()[0].split('_')[0])
-
-        return list(edge_ids)
 
     def populate_vehicles_from_config(self, config):
+        """
+        Populates vehicles in the simulation based on a configuration file.
+        The configuration file should specify the total number of vehicles,
+        the distribution of vehicles across zones, and the types of vehicles.   
+        """
+
         total_vehicles = config["vehicle_generation"]["total_num_vehicles"]
         print(f"Total vehicles to generate: {total_vehicles}")
+        estimated_peak = self.estimate_required_vehicles(config)
+        print(f"Estimated requiered vehicles: {estimated_peak}")
+        if estimated_peak > total_vehicles:
+            print(f"ERROR : Terminating the simulation since estimated requiered vehicles ({estimated_peak}) exceeds total vehicles ({total_vehicles}).")
+            exit(1)
+        
         zone_alloc = config["vehicle_generation"]["zone_allocation"]
         vehicle_types = config["vehicle_generation"]["vehicle_types"]
 
@@ -462,6 +466,7 @@ class SimManager:
             for i, zid in enumerate(active_zone_ids):
                 stagnant_per_zone[zid] = base_stag + (1 if i < extra_stag else 0)
                 sum_vehicles += stagnant_per_zone[zid]
+        
         # Calculate total vehicles in other zones
         active_zone_vehicle_counts = {}
         for zid in zone_alloc:
@@ -474,8 +479,10 @@ class SimManager:
             active_zone_vehicle_counts[zid] = num_zone_vehicles
             sum_vehicles += num_zone_vehicles
     
-        
-        while total_vehicles != sum_vehicles:
+        # Allocate more vehicles to zones until total_vehicles is reached
+        # This is to ensure that the total number of vehicles is equal to the specified total
+        # vehicles in the configuration
+        while total_vehicles > sum_vehicles:
             # Randomly select a zone
             zone_id = random.choice(active_zone_ids)
             active_zone_vehicle_counts[zone_id] += 1
@@ -484,7 +491,10 @@ class SimManager:
 
         print(f"Total sum_vehicles vehicles: {sum_vehicles}")
         
-
+        # Create vehicles in each zone
+        # Iterate over each zone and create vehicles
+        # based on the specified distribution
+        # and vehicle types
         for zone_id, zone_cfg in zone_alloc.items():
             if zone_id.lower() == "stagnant":
                 continue
@@ -493,7 +503,7 @@ class SimManager:
             num_zone_vehicles = active_zone_vehicle_counts[zone_id] + stagnant_per_zone.get(zone_id, 0)
             type_distribution = zone_cfg["vehicle_type_distribution"]
 
-            # Get eligible roads in this zone
+            # Get eligible single lanes roads in this zone
             zone = self.db.get_zone(zone_id)
             eligible_roads = [eid for eid in zone.edges if self.db.get_road(eid).num_lanes == 1]
             if not eligible_roads:
@@ -516,7 +526,6 @@ class SimManager:
             overflow = len(vehicle_specs) % len(eligible_roads)
 
             vehicle_iter = iter(vehicle_specs)
-            created_vehicle_ids = []
 
             for i, road_id in enumerate(eligible_roads):
                 vehicles_on_road = per_road + (1 if i < overflow else 0)
@@ -655,6 +664,8 @@ class SimManager:
         """
         if current_step not in self.schedule:
             return
+        
+        curr_week = current_step // 604800
 
         for vehicle_id, origin_label, destination_label in self.schedule[current_step]:
             vehicle = self.db.get_vehicle(vehicle_id)
@@ -666,7 +677,7 @@ class SimManager:
             destination = vehicle.destinations[destination_label]
             vehicle.current_destination_name = destination_label
             vehicle.current_destination_edge = destination["edge"]
-            route_id = f"route_{vehicle_id}_to_{destination_label}"
+            route_id = f"route_{vehicle_id}_to_{destination_label}_{curr_week}"
 
             try:
                 traci.route.add(routeID=route_id, edges=[vehicle.current_edge, destination["edge"]])
@@ -687,7 +698,7 @@ class SimManager:
                 vehicle.current_trip = destination_label
                 traci.vehicle.subscribe(vehicle.id, [tc.VAR_ROAD_ID])
                 self.vehicles_in_route.append(vehicle.id)
-                print(f"[DISPATCHED] {vehicle.id} to {destination_label} at step {current_step}")
+                # print(f"[DISPATCHED] {vehicle.id} to {destination_label} at step {current_step}")
             except traci.TraCIException as e:
                 print(f"[ERROR] Failed to dispatch {vehicle.id}: {e}")
 
@@ -695,44 +706,57 @@ class SimManager:
 
     def schedule_from_config(self, config):
         schedule_entries = config.get("weekday_schedule", [])
+        num_weeks = config["vehicle_generation"]["simulation_weeks"]
         seconds_in_day = 86400
+        seconds_in_week = seconds_in_day * 7
+        num_scheduled_vehicles = 0
+        
+        # Create a schedule for each week
+        for week in range(num_weeks):
+            week_start = week * seconds_in_week
 
-        for entry in schedule_entries:
-            start_sec = self.convert_time_to_seconds(entry["start_time"])
-            end_sec = self.convert_time_to_seconds(entry["end_time"])
-            vpm_rate = entry.get("vpm_rate", 0)
-            source_zones = entry.get("source_zones", [])
-            origin_keys = entry.get("origin", [])
-            destination_keys = entry.get("destination", [])
-            repeat_days = entry.get("repeat_on_days", [1, 2, 3, 4, 5])
+            # Adjust the start and end times for the current week       
+            for entry in schedule_entries:
+                start_sec = self.convert_time_to_seconds(entry["start_time"]) + week_start
+                end_sec = self.convert_time_to_seconds(entry["end_time"]) + week_start
+                vpm_rate = entry.get("vpm_rate", 0)
+                source_zones = entry.get("source_zones", [])
+                origin_keys = entry.get("origin", [])
+                destination_keys = entry.get("destination", [])
+                repeat_days = entry.get("repeat_on_days", [])
 
-            # Compute interval between dispatches
-            interval = 60 // max(vpm_rate, 1)
-            local_steps = list(range(start_sec, end_sec + 1, int(interval)))
+                # Compute interval between dispatches
+                interval = 60 // max(vpm_rate, 1)
+                local_steps = list(range(start_sec, end_sec + 1, int(interval)))
 
-            for day in repeat_days:
-                base_step = (day - 1) * seconds_in_day
-                steps = [base_step + s for s in local_steps]
+                for day in repeat_days:
+                    base_step = (day - 1) * seconds_in_day
+                    steps = [base_step + s for s in local_steps]
 
-                for zone_id in source_zones:
-                    zone = self.db.get_zone(zone_id)
-                    eligible = [
-                        v for v in zone.current_vehicles
-                        if not self.db.get_vehicle(v).scheduled
-                    ]
+                    for zone_id in source_zones:
+                        zone = self.db.get_zone(zone_id)
+                        eligible = [
+                            v for v in zone.current_vehicles
+                            if not self.db.get_vehicle(v).scheduled[week]
+                        ]
 
-                    steps_to_use = steps[:len(eligible)]
+                        steps_to_use = steps[:len(eligible)]
 
-                    for step, veh_id in zip(steps_to_use, eligible):
-                        vehicle = self.db.get_vehicle(veh_id)
-                        vehicle.scheduled = True
+                        for step, veh_id in zip(steps_to_use, eligible):
+                            vehicle = self.db.get_vehicle(veh_id)
+                            vehicle.scheduled[week] = True
 
-                        origin = random.choice(origin_keys)
-                        dest = random.choice(destination_keys)
-                        self.add_to_schedule(step, [(veh_id, origin, dest)])
+                            origin = random.choice(origin_keys)
+                            dest = random.choice(destination_keys)
+                            self.add_to_schedule(step, [(veh_id, origin, dest)])
+                            num_scheduled_vehicles += 1
 
-                        print(f"[Scheduled] {veh_id} → {dest} from zone {zone_id} origin {origin} at step {step} (day {day})")
-
+                            # print(f"[Scheduled] {veh_id} → {dest} from zone {zone_id} origin {origin} at {self.convert_seconds_to_time(step)}")
+                    
+            print(f"Week {week + 1} schedule created. number of vehicles: {num_scheduled_vehicles}")
+        print("All schedules created.") 
+        print(f"Total scheduled vehicles: {sum(len(v) for v in self.schedule.values())}")
+        print(f"Total vehicles in simulation: {len(self.db.vehicles)}")
 
 
     def get_vehicles_in_route(self):
@@ -747,3 +771,66 @@ class SimManager:
         """
         hour, minute = map(int, time_str.split(":"))
         return hour * 3600 + minute * 60
+    
+    def convert_seconds_to_time(self, seconds):
+        """
+        Converts a number of seconds  into a time string formatted as WW:DD:HH:MM:SS.
+        """
+        week = seconds // 604800
+        day = (seconds % 604800) // 86400
+        hour = (seconds % 86400) // 3600
+        minute = (seconds % 3600) // 60
+        second = seconds % 60
+        return f"{week:02}:{day:02}:{hour:02}:{minute:02}:{second:02}"
+
+    
+    def estimate_peak_vehicles(self, config):
+        seconds_per_day = 86400
+        timeline = defaultdict(int)
+
+        for task in config.get("weekday_schedule", []):
+            start = self.convert_time_to_seconds(task["start_time"])
+            end = self.convert_time_to_seconds(task["end_time"])
+            duration = end - start
+            vpm = float(task.get("vpm_rate", 0.1))
+            interval = 60 / vpm
+
+            repeat_days = task.get("repeat_on_days", [1, 2, 3, 4, 5])
+            return_delay = task.get("return_after_seconds", 0)
+
+            for day in repeat_days:
+                base_step = (day - 1) * seconds_per_day
+                departure_steps = range(start, end, int(interval))
+
+                for dep in departure_steps:
+                    timeline[base_step + dep] += 1
+                    timeline[base_step + dep + return_delay] -= 1
+
+        # Compute the peak concurrent vehicle count
+        running_total = 0
+        max_vehicles = 0
+        for step in sorted(timeline.keys()):
+            running_total += timeline[step]
+            max_vehicles = max(max_vehicles, running_total)
+
+        return max_vehicles
+    
+    def estimate_required_vehicles(self, config):
+        total = 0
+        seconds_per_day = 86400
+
+        for entry in config.get("weekday_schedule", []):
+            vpm = entry.get("vpm_rate", 0.0)
+            interval = 60 / max(vpm, 0.01)
+
+            start = self.convert_time_to_seconds(entry["start_time"])
+            end = self.convert_time_to_seconds(entry["end_time"])
+            duration = max(end - start, 0)
+
+            num_dispatches = int(duration // interval)
+            num_zones = len(entry.get("source_zones", []))
+            num_days = len(entry.get("repeat_on_days", [1, 2, 3, 4, 5]))
+
+            total += num_dispatches * num_zones * num_days
+
+        return total

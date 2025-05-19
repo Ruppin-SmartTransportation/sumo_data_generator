@@ -1,6 +1,7 @@
 {
     "vehicle_generation": {
-        "total_num_vehicles": 10000,
+        "simulation_weeks": 4,
+        "total_num_vehicles": 138220,
         "zone_allocation": {
             "A": {
                 "percentage": 40,
@@ -229,28 +230,120 @@
             "BI3BH3"
        ]
     },
-    "weekday_schedule": 
-    [
-        {
-            "name": "Night visits to a friend",
-            "start_time": "00:00",
-            "end_time": "00:30",
-            "repeat_on_days": [1, 2, 3, 4, 5],
-            "vpm_rate": 2,
-            "source_zones": ["A", "B", "C"],
-            "origin": ["home", "work"],
-            "destination": ["friend2", "friend3"]
-        },
-        {
-            "name": "traveling back home",
-            "start_time": "00:30",
-            "end_time": "01:00",
-            "repeat_on_days": [1, 2, 3, 4, 5],
-            "vpm_rate": 2,
-            "source_zones": ["A", "B", "C"],
-            "origin": ["friend2", "friend3"],
-            "destination": ["home"]
-        }
+    "weekday_schedule": [
+    {
+        "name": "Random Trips",
+        "start_time": "00:00",
+        "end_time": "23:59",
+        "repeat_on_days": [1,2,3,4,5,6,7],
+        "vpm_rate": 1,
+        "source_zones": ["A", "B", "C"],
+        "origin": ["home", "work"],
+        "destination": [
+            "work", "home", "friend1", "friend2", "friend3",
+            "restaurantA", "restaurantB", "restaurantC",
+            "park1", "park2", "park3", "park4",
+            "stadium1", "stadium2"
+        ]
+    },
+    {
+        "name": "Early Morning",
+        "start_time": "05:00",
+        "end_time": "06:30",
+        "repeat_on_days": [1,2,3,4,5],
+        "vpm_rate": 5,
+        "source_zones": ["A", "B", "C"],
+        "origin": ["home"],
+        "destination": ["home"]
+    },
+    {
+        "name": "Morning Rush",
+        "start_time": "06:30",
+        "end_time": "09:30",
+        "repeat_on_days": [1,2,3,4,5],
+        "vpm_rate": 15,
+        "source_zones": ["A", "C"],
+        "origin": ["home"],
+        "destination": ["work"]
+    },
+    {
+        "name": "Midday Work",
+        "start_time": "09:30",
+        "end_time": "12:00",
+        "repeat_on_days": [1,2,3,4,5],
+        "vpm_rate": 7,
+        "source_zones": ["A", "B", "C"],
+        "origin": ["work"],
+        "destination": ["home"]
+    },
+    {
+        "name": "Lunch Break",
+        "start_time": "12:00",
+        "end_time": "13:30",
+        "repeat_on_days": [1,2,3,4,5],
+        "vpm_rate": 4,
+        "source_zones": ["A", "B", "C"],
+        "origin": ["work"],
+        "destination": [
+            "restaurantA", "restaurantB", "restaurantC"
+        ]
+    },
+
+    {
+        "name": "Afternoon Work",
+        "start_time": "13:30",
+        "end_time": "16:00",
+        "repeat_on_days": [1,2,3,4,5],
+        "vpm_rate": 4,
+        "source_zones": ["A", "B", "C"],
+        "origin": ["restaurantA", "restaurantB", "restaurantC"],
+        "destination": ["work"]
+    },
+    {
+        "name": "Evening Rush",
+        "start_time": "16:00",
+        "end_time": "19:00",
+        "repeat_on_days": [1,2,3,4,5],
+        "vpm_rate": 15,
+        "source_zones": ["B"],
+        "origin": ["work"],
+        "destination": ["home"]
+    },
+    {
+        "name": "Evening Social/Leisure",
+        "start_time": "19:00",
+        "end_time": "23:00",
+        "repeat_on_days": [1,2,3,4,5,6,7],
+        "vpm_rate": 5,
+        "source_zones": ["A", "B", "C"],
+        "origin": ["home"],
+        "destination": [
+            "friend1", "friend2", "friend3",
+            "restaurantA", "restaurantB", "restaurantC",
+            "park1", "park2", "park3", "park4",
+            "stadium1", "stadium2"
+        ]
+    },
+    {
+        "name": "Stadium Event",
+        "start_time": "20:00",
+        "end_time": "22:00",
+        "repeat_on_days": [6],  
+        "vpm_rate": 15,
+        "source_zones": ["A", "B", "C"],
+        "origin": ["home"],
+        "destination": ["stadium1", "stadium2"]
+    },
+    {
+        "name": "Night Quiet",
+        "start_time": "23:00",
+        "end_time": "06:00",
+        "repeat_on_days": [1,2,3,4,5,6,7],
+        "vpm_rate": 0.5,
+        "source_zones": ["A", "B", "C"],
+        "origin": ["home"],
+        "destination": ["home"]
+    }
     ]
 }
       

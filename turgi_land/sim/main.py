@@ -43,7 +43,11 @@ if __name__ == "__main__":
 
     # Step the simulation forward
     step = 0
-    while True:
+    num_weeks = config["vehicle_generation"]["simulation_weeks"]
+    seconds_in_day = 86400
+    seconds_in_week = seconds_in_day * 7
+    limit = num_weeks * seconds_in_week
+    while step < limit:
         traci.simulationStep()
         sim.dispatch(step, traci)
         
@@ -55,11 +59,13 @@ if __name__ == "__main__":
                 vehicle.current_position = traci.vehicle.getLanePosition(vid)
                 vehicle.current_speed = traci.vehicle.getSpeed(vid)
                 vehicle.current_lane = traci.vehicle.getLaneID(vid)
+                vehicle.current_x, vehicle.current_y = traci.vehicle.getPosition(vid)
+
                 if current_edge == vehicle.current_destination_edge:
                     vehicle.status = "parked"
                     vehicle.current_edge = vehicle.destinations[vehicle.current_destination_name]["edge"]
                     vehicle.current_position = vehicle.destinations[vehicle.current_destination_name]["position"]
-                    print(f"Vehicle {vehicle.id} arrived at destination {vehicle.current_destination_name}.")
+                    print(f"Vehicle {vehicle.id} arrived at destination {vehicle.current_destination_name} at {sim.convert_seconds_to_time(step)}.")
         step += 1
     # input("Press Enter to close simulation...")
     traci.close()
