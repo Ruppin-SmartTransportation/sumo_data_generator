@@ -490,7 +490,7 @@ class SimManager:
             zone_id = random.choice(active_zone_ids)
             active_zone_vehicle_counts[zone_id] += 1
             sum_vehicles += 1
-            print(f"Adding vehicle to zone {zone_id}.")
+            # print(f"Adding vehicle to zone {zone_id}.")
 
         print(f"Total sum_vehicles vehicles: {sum_vehicles}")
         
@@ -687,8 +687,8 @@ class SimManager:
                 full_route_edges = route_result.edges
                 # print(f"Route from {vehicle.current_edge} to {destination['edge']}: {full_route_edges}")
                 traci.route.add(routeID=route_id, edges=full_route_edges)
-                vehicle.route = full_route_edges
-                vehicle.route_left = full_route_edges.copy()
+                vehicle.route = list(full_route_edges)
+                vehicle.route_left = list(full_route_edges)
                 traci.vehicle.add(
                                 vehID=vehicle.id,
                                 routeID=route_id,
@@ -698,7 +698,6 @@ class SimManager:
                                 departSpeed=0,
                                 departLane="0",
                             )
-                print(traci.vehicle.getRoute(vehicle.id))
                 if vehicle.is_stagnant:
                     traci.vehicle.setColor(vehicle.id, (255, 255, 255))  # White for stagnant vehicles
                 
@@ -722,7 +721,7 @@ class SimManager:
         # Create a schedule for each week
         for week in range(num_weeks):
             week_start = week * seconds_in_week
-
+            num_weekly_vehicles = 0
             # Adjust the start and end times for the current week       
             for entry in schedule_entries:
                 start_sec = self.convert_time_to_seconds(entry["start_time"]) + week_start
@@ -758,10 +757,10 @@ class SimManager:
                             dest = random.choice(destination_keys)
                             self.add_to_schedule(step, [(veh_id, origin, dest)])
                             num_scheduled_vehicles += 1
-
+                            num_weekly_vehicles += 1
                             # print(f"[Scheduled] {veh_id} → {dest} from zone {zone_id} origin {origin} at {self.convert_seconds_to_time(step)}")
-                    
-            print(f"Week {week + 1} schedule created. number of vehicles: {num_scheduled_vehicles}")
+            print(f"Week {week + 1} scheduled vehicles: {num_weekly_vehicles}")
+        print(f"Total vehicles scheduled for dispatch: {num_scheduled_vehicles}")
         print("All schedules created.") 
         print(f"Total scheduled vehicles: {sum(len(v) for v in self.schedule.values())}")
         print(f"Total vehicles in simulation: {len(self.db.vehicles)}")

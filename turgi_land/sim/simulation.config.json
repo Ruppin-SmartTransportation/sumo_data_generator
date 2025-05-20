@@ -1,7 +1,7 @@
 {
     "vehicle_generation": {
         "simulation_weeks": 4,
-        "total_num_vehicles": 138220,
+        "total_num_vehicles": 178719,
         "zone_allocation": {
             "A": {
                 "percentage": 40,
@@ -251,7 +251,7 @@
         "start_time": "05:00",
         "end_time": "06:30",
         "repeat_on_days": [1,2,3,4,5],
-        "vpm_rate": 5,
+        "vpm_rate": 7,
         "source_zones": ["A", "B", "C"],
         "origin": ["home"],
         "destination": ["home"]
@@ -261,7 +261,7 @@
         "start_time": "06:30",
         "end_time": "09:30",
         "repeat_on_days": [1,2,3,4,5],
-        "vpm_rate": 15,
+        "vpm_rate": 20,
         "source_zones": ["A", "C"],
         "origin": ["home"],
         "destination": ["work"]
@@ -271,7 +271,7 @@
         "start_time": "09:30",
         "end_time": "12:00",
         "repeat_on_days": [1,2,3,4,5],
-        "vpm_rate": 7,
+        "vpm_rate": 10,
         "source_zones": ["A", "B", "C"],
         "origin": ["work"],
         "destination": ["home"]
@@ -281,7 +281,7 @@
         "start_time": "12:00",
         "end_time": "13:30",
         "repeat_on_days": [1,2,3,4,5],
-        "vpm_rate": 4,
+        "vpm_rate": 7,
         "source_zones": ["A", "B", "C"],
         "origin": ["work"],
         "destination": [
@@ -294,7 +294,7 @@
         "start_time": "13:30",
         "end_time": "16:00",
         "repeat_on_days": [1,2,3,4,5],
-        "vpm_rate": 4,
+        "vpm_rate": 10,
         "source_zones": ["A", "B", "C"],
         "origin": ["restaurantA", "restaurantB", "restaurantC"],
         "destination": ["work"]
@@ -304,7 +304,7 @@
         "start_time": "16:00",
         "end_time": "19:00",
         "repeat_on_days": [1,2,3,4,5],
-        "vpm_rate": 15,
+        "vpm_rate": 20,
         "source_zones": ["B"],
         "origin": ["work"],
         "destination": ["home"]
